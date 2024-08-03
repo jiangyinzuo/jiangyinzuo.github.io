@@ -10,6 +10,16 @@
 			font-size: 18px;
 		}
 
+		.show-on-small-screen {
+			display: none;
+		}
+
+		@media (max-width: 359px) {
+			.show-on-small-screen {
+				display: inline;
+			}
+		}
+
 		/* mobile phone */
 		@media (max-width: 600px) {
 			html {
@@ -36,12 +46,15 @@
 				font-size: 22px;
 			}
 		}
+
 	</style>
 </head>
 
 <body style="margin: 2rem; background-color: #D0E9D6">
 	<h1>
-		Yinzuo Jiang (
+		Yinzuo Jiang
+		<br class="show-on-small-screen" />
+		(
 		<ruby>江<rt>jiāng</rt></ruby>
 		<ruby>胤<rt>yìn</rt></ruby>
 		<ruby>佐<rt>zuǒ</rt></ruby>
@@ -54,9 +67,10 @@
 
 	<h2>About Me</h2>
 	<p>
-		I am a MS student at <a href="http://www.ict.ac.cn/" target="_blank">Institute of Computing Technology, Chinese Academy of Sciences</a>,
+		I am a MS student at
+		<a href="http://www.ict.ac.cn/" target="_blank">Institute of Computing Technology, Chinese Academy of Sciences</a>,
 		advised by Prof. <a href="https://www.shimin-chen.com/" target="_blank">Shimin Chen</a>.
-		<br/>
+		<br />
 		I received my B.E. from <a href="https://swjtu.edu.cn/" target="_blank">Southwest Jiaotong University</a> in 2022.
 	</p>
 	<p>My research interest is database management system(DBMS).</p>
