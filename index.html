@@ -53,10 +53,6 @@
 			text-decoration: none;
 		}
 
-		.paper-link:hover {
-			text-decoration: underline;
-		}
-
 		.artifact-button {
 			background-color: #aabbbb;
 			color: #000000;
@@ -65,6 +61,11 @@
 			text-decoration: none;
 			border: 0.05rem solid #aabbbb;
 			border-radius: 0.4rem;
+		}
+
+		.paper-link:hover,
+		.artifact-button:hover {
+			text-decoration: underline;
 		}
 	</style>
 </head>
@@ -132,12 +133,13 @@
 	<ul style="list-style-type: circle;">
 		<li>
 			<a href="https://ieeexplore.ieee.org/document/11108154" target="_blank" class="paper-link">
-				<em>"An Experimental Study of GPU-Based Graph ANN Search Algorithms"</em>.
+				<!-- <strong>: To let search engines know this is important.  -->
+				<strong>An Experimental Study of GPU-Based Graph ANN Search Algorithms</strong>.
 			</a>&ensp;
 			<a href="https://github.com/schencoding/gpu-graph-anns" target="_blank" class="artifact-button">CODE</a>&ensp;
 			<a href="https://hardbd-active.github.io/2025/papers/HardBDActive25-JiangC.pdf" target="_blank"
 				class="artifact-button">PDF</a>
-			<br />&nbsp;
+			<br />
 			<span style="font-weight: 500">Yinzuo Jiang, Shimin Chen.</span>&nbsp;
 			2025 IEEE 41st International Conference on Data Engineering Workshops (<b>ICDEW 2025</b>)
 		</li>
