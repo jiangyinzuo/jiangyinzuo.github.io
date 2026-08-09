@@ -1,0 +1,351 @@
+<!DOCTYPE html><html lang="zh-CN" data-astro-cid-tldeq5d5><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="generator" content="Astro v7.2.0"><title>UPDATE互相等待的死锁分析（gpt-5.6-sol生成） | Yinzuo Jiang</title><link rel="stylesheet" href="/assets/BlogPost.DMfLLSA3.css"><style>:root{--color-canvas:#f3ebdd;--color-ink:#2f2a26;--color-muted:#81786f;--color-line:#dfd7cd;--color-accent:#b66b50;--color-nav:#625d58;--color-link-underline:#c79b83;--color-link-hover:#713b2b;--font-serif:"Iowan Old Style", "Palatino Linotype", "Source Han Serif SC VF", "Noto Serif CJK SC", Georgia, serif;--font-sans:"Source Han Sans CN", "Noto Sans CJK SC", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;--font-mono:"SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;--mobile-nav-height:48px}*{box-sizing:border-box}html,body{background-color:var(--color-canvas);color:var(--color-ink)}html{scrollbar-gutter:stable}a{color:inherit;text-decoration-color:var(--color-link-underline);text-decoration-skip-ink:auto;text-underline-offset:.2em;text-decoration-line:underline;text-decoration-thickness:1px;transition:color .12s,text-decoration-color .12s}a:hover{color:var(--color-link-hover);text-decoration-color:currentColor}a:focus-visible{outline:2px solid var(--color-accent);outline-offset:3px;border-radius:1px}.private-lock{color:var(--color-muted);margin-left:.35em}.private-lock svg{vertical-align:-.1em;width:.75em;height:.75em;display:inline-block}.site-nav[data-astro-cid-rutobish]{z-index:10;background:var(--color-canvas);font-family:var(--font-mono);letter-spacing:0;align-items:center;padding:3px 0 3px 10px;font-size:15px;font-weight:700;line-height:1.4;display:flex;position:fixed;top:22px;right:clamp(16px,2vw,24px)}.site-nav[data-astro-cid-rutobish] a[data-astro-cid-rutobish]{color:var(--color-nav);text-decoration:none}.site-nav[data-astro-cid-rutobish] a[data-astro-cid-rutobish]+a[data-astro-cid-rutobish]{margin-left:16px}.site-nav[data-astro-cid-rutobish] a[data-astro-cid-rutobish]:hover{color:var(--color-accent)}.site-nav[data-astro-cid-rutobish] a[data-astro-cid-rutobish]:focus-visible{outline:2px solid var(--color-accent);outline-offset:3px}@media (width<=680px){.site-nav[data-astro-cid-rutobish]{z-index:30;width:auto;max-width:100%;min-height:calc(var(--mobile-nav-height) + env(safe-area-inset-top));padding:env(safe-area-inset-top) max(1rem, env(safe-area-inset-right)) 0 .75rem;justify-content:flex-end;top:0;left:auto;right:0}}@media print{.site-nav[data-astro-cid-rutobish]{display:none}}
+</style></head><body data-astro-cid-tldeq5d5><div class="page-shell" data-astro-cid-tldeq5d5><div class="nav-spacer" data-astro-cid-tldeq5d5><nav class="site-nav" aria-label="主导航" data-pagefind-ignore="all" data-astro-cid-rutobish><a href="/" data-astro-cid-rutobish>Home</a><a href="/posts/" aria-current="page" data-astro-cid-rutobish>Blog</a></nav></div><div class="reading-navigation" data-astro-cid-tldeq5d5><aside class="article-tree" aria-labelledby="article-tree-title" data-pagefind-ignore="all" data-astro-cid-qfudxec6><p id="article-tree-title" data-astro-cid-qfudxec6>文章导航</p><nav aria-label="相关文章" data-astro-cid-qfudxec6><ol data-astro-cid-qfudxec6><li class="tree-root" style="--tree-depth: 0" data-astro-cid-qfudxec6><a href="/posts/gaussdb/locking/" data-astro-cid-qfudxec6><span class="tree-branch" aria-hidden="true" data-astro-cid-qfudxec6></span><span data-astro-cid-qfudxec6>GaussDB/OpenGauss锁管理</span></a></li><li style="--tree-depth: 1" data-astro-cid-qfudxec6><a href="/posts/gaussdb/locking/txn-deadlock-analysis/" aria-current="page" data-astro-cid-qfudxec6><span class="tree-branch" aria-hidden="true" data-astro-cid-qfudxec6></span><span data-astro-cid-qfudxec6>UPDATE互相等待的死锁分析（gpt-5.6-sol生成）</span></a></li></ol></nav></aside><details class="article-tree-drawer" data-pagefind-ignore="all" data-astro-cid-qfudxec6><summary data-astro-cid-qfudxec6>文章导航</summary><nav aria-label="相关文章" data-astro-cid-qfudxec6><ol data-astro-cid-qfudxec6><li class="tree-root" style="--tree-depth: 0" data-astro-cid-qfudxec6><a href="/posts/gaussdb/locking/" data-astro-cid-qfudxec6><span class="tree-branch" aria-hidden="true" data-astro-cid-qfudxec6></span><span data-astro-cid-qfudxec6>GaussDB/OpenGauss锁管理</span></a></li><li style="--tree-depth: 1" data-astro-cid-qfudxec6><a href="/posts/gaussdb/locking/txn-deadlock-analysis/" aria-current="page" data-astro-cid-qfudxec6><span class="tree-branch" aria-hidden="true" data-astro-cid-qfudxec6></span><span data-astro-cid-qfudxec6>UPDATE互相等待的死锁分析（gpt-5.6-sol生成）</span></a></li></ol></nav></details><!--
+	目录保留独立滚动和最大高度，但隐藏浏览器默认滚动条，并用轻微的上下渐隐提示可滚动内容，避免滚动轨道造成视觉冲突。
+--><aside class="table-of-contents" aria-labelledby="toc-title" data-astro-cid-p33bl5ka><p id="toc-title" data-astro-cid-p33bl5ka>目录</p><nav class="toc-scroll-region" aria-label="文章目录" data-astro-cid-p33bl5ka><ol data-astro-cid-p33bl5ka><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#update-首先取得表级-rowexclusivelock" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>1</span>UPDATE 首先取得表级 RowExclusiveLock</a></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#每个-update-都为自己的-xid-持有-exclusivelock" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>2</span>每个 UPDATE 都为自己的 XID 持有 ExclusiveLock</a></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#行锁主要记录在-tuple-header不为每一行长期保留-lock" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>3</span>行锁主要记录在 tuple header，不为每一行长期保留 LOCK</a></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#为什么还有临时-locktag_tuple" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>4</span>为什么还有临时 LOCKTAG_TUPLE</a></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#为什么等待事务时请求-sharelock" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>5</span>为什么等待事务时请求 ShareLock</a></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#本例的具体等待图" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>6</span>本例的具体等待图</a></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#sharelock-请求如何进入主锁表等待队列" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>7</span>ShareLock 请求如何进入主锁表等待队列</a></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#死锁检测源码位置" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>8</span>死锁检测源码位置</a></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#错误文本在哪里生成" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>9</span>错误文本在哪里生成</a></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#关于会话-2-回滚的准确说法" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>10</span>关于“会话 2 回滚”的准确说法</a></li></ol></nav></aside><details class="toc-drawer" data-pagefind-ignore="all" data-astro-cid-p33bl5ka><summary data-astro-cid-p33bl5ka>本页目录</summary><nav class="toc-scroll-region" aria-label="文章目录" data-astro-cid-p33bl5ka><ol data-astro-cid-p33bl5ka><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#update-首先取得表级-rowexclusivelock" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>1</span>UPDATE 首先取得表级 RowExclusiveLock</a></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#每个-update-都为自己的-xid-持有-exclusivelock" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>2</span>每个 UPDATE 都为自己的 XID 持有 ExclusiveLock</a></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#行锁主要记录在-tuple-header不为每一行长期保留-lock" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>3</span>行锁主要记录在 tuple header，不为每一行长期保留 LOCK</a></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#为什么还有临时-locktag_tuple" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>4</span>为什么还有临时 LOCKTAG_TUPLE</a></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#为什么等待事务时请求-sharelock" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>5</span>为什么等待事务时请求 ShareLock</a></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#本例的具体等待图" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>6</span>本例的具体等待图</a></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#sharelock-请求如何进入主锁表等待队列" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>7</span>ShareLock 请求如何进入主锁表等待队列</a></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#死锁检测源码位置" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>8</span>死锁检测源码位置</a></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#错误文本在哪里生成" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>9</span>错误文本在哪里生成</a></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#关于会话-2-回滚的准确说法" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>10</span>关于“会话 2 回滚”的准确说法</a></li></ol></nav></details><script type="module">var e=e=>{let t=e.clientHeight>0&&e.scrollHeight>e.clientHeight+1,n=t&&e.scrollTop>1,r=t&&e.scrollTop+e.clientHeight<e.scrollHeight-1;e.classList.toggle(`toc-scroll-region--above`,n),e.classList.toggle(`toc-scroll-region--below`,r)};document.querySelectorAll(`.toc-scroll-region`).forEach(t=>{let n=()=>e(t);t.addEventListener(`scroll`,n,{passive:!0}),new ResizeObserver(n).observe(t),n()}),document.querySelector(`.toc-drawer`)?.addEventListener(`toggle`,t=>{let n=t.currentTarget.querySelector(`.toc-scroll-region`);n&&requestAnimationFrame(()=>e(n))});</script></div><main class="content-layout" data-astro-cid-tldeq5d5><article class="article-frame" data-pagefind-body data-astro-cid-tldeq5d5><header class="article-header" data-astro-cid-tldeq5d5><h1 data-astro-cid-tldeq5d5>UPDATE互相等待的死锁分析（gpt-5.6-sol生成）</h1></header><div class="article-content" data-astro-cid-tldeq5d5><blockquote>
+<p>报错中的 ShareLock on transaction 14165 不是说会话 2 正在对 t1 的某一行加 ShareLock，而是说它正在对“事务 14165”这个锁对象请求 ShareLock，借此等待事务 14165 结束。</p>
+</blockquote>
+<p>行冲突首先记录在 tuple header 的 xmax 中，真正睡眠等待时转换成 LOCKTAG_TRANSACTION + ShareLock，所以死锁报告显示的是 transaction lock。</p>
+<p><strong>涉及的锁和状态</strong></p>
+<table>
+<thead>
+<tr>
+<th>层次</th>
+<th>锁对象或状态</th>
+<th>锁模式</th>
+<th>物理位置</th>
+<th>是否构成本次死锁</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>表级</td>
+<td>LOCKTAG_RELATION(t1)</td>
+<td>RowExclusiveLock</td>
+<td>fast-path 或主锁表</td>
+<td>否，两个 RowExclusiveLock 相互兼容</td>
+</tr>
+<tr>
+<td>索引级</td>
+<td>LOCKTAG_RELATION(t1_pkey)</td>
+<td>通常也是 RowExclusiveLock</td>
+<td>fast-path 或主锁表</td>
+<td>否</td>
+</tr>
+<tr>
+<td>行级持有信息</td>
+<td>tuple header 的 xmax/infomask</td>
+<td>本例通常是 LockTupleNoKeyExclusive 语义</td>
+<td>数据页中的 tuple header</td>
+<td>标识哪一个 XID 更新了该行</td>
+</tr>
+<tr>
+<td>tuple 等待仲裁</td>
+<td>LOCKTAG_TUPLE</td>
+<td>本例通常映射为 heavyweight ExclusiveLock</td>
+<td>主锁表 LOCK/PROCLOCK</td>
+<td>用于多个等待者排队，不是报错中的 ShareLock</td>
+</tr>
+<tr>
+<td>事务 ID 锁</td>
+<td>LOCKTAG_TRANSACTION(14165)</td>
+<td>拥有者持有 ExclusiveLock</td>
+<td>主锁表 LOCK/PROCLOCK</td>
+<td>是</td>
+</tr>
+<tr>
+<td>事务 ID 锁</td>
+<td>LOCKTAG_TRANSACTION(14166)</td>
+<td>拥有者持有 ExclusiveLock</td>
+<td>主锁表 LOCK/PROCLOCK</td>
+<td>是</td>
+</tr>
+<tr>
+<td>事务等待请求</td>
+<td>对方的 LOCKTAG_TRANSACTION</td>
+<td>等待者请求 ShareLock</td>
+<td>主锁表等待队列</td>
+<td>是，形成两条等待边</td>
+</tr>
+</tbody>
+</table>
+<h2 id="update-首先取得表级-rowexclusivelock">UPDATE 首先取得表级 RowExclusiveLock</h2>
+<p>执行器打开 UPDATE 的目标 relation 时使用：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="cpp"><code><span class="line"><span style="color:#24292E">resultRelation </span><span style="color:#D73A49">=</span><span style="color:#6F42C1"> heap_open</span><span style="color:#24292E">(</span></span>
+<span class="line"><span style="color:#24292E">    resultRelationOid,</span></span>
+<span class="line"><span style="color:#24292E">    RowExclusiveLock</span></span>
+<span class="line"><span style="color:#24292E">);</span></span></code></pre>
+<p>源码位于 src/gausskernel/runtime/executor/execMain.cpp。</p>
+<p>两个会话都持有：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>LOCKTAG_RELATION(t1) + RowExclusiveLock</span></span></code></pre>
+<p>但 RowExclusiveLock 与另一个 RowExclusiveLock 兼容，因此表锁不会造成这个死锁。</p>
+<p>因为 RowExclusiveLock 满足 relation fast-path 资格，所以这两个表锁还可能保存在各自的：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>PGPROC.fpRelId[]</span></span>
+<span class="line"><span>PGPROC.fpLockBits[]</span></span></code></pre>
+<p>中，而不一定进入主锁表。</p>
+<h2 id="每个-update-都为自己的-xid-持有-exclusivelock">每个 UPDATE 都为自己的 XID 持有 ExclusiveLock</h2>
+<p>真正更新 tuple 时进入 src/gausskernel/storage/access/heap/heapam.cpp：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="cpp"><code><span class="line"><span style="color:#24292E">TransactionId xid </span><span style="color:#D73A49">=</span><span style="color:#6F42C1"> GetCurrentTransactionId</span><span style="color:#24292E">();</span></span></code></pre>
+<p>如果当前事务还没有分配 XID，GetCurrentTransactionId() 会调用：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>AssignTransactionId()</span></span>
+<span class="line"><span>  → GetNewTransactionId()</span></span>
+<span class="line"><span>  → XactLockTableInsert(xid)</span></span></code></pre>
+<p>XactLockTableInsert() 位于 src/gausskernel/storage/lmgr/lmgr.cpp：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="cpp"><code><span class="line"><span style="color:#D73A49">void</span><span style="color:#6F42C1"> XactLockTableInsert</span><span style="color:#24292E">(</span><span style="color:#6F42C1">TransactionId</span><span style="color:#E36209"> xid</span><span style="color:#24292E">)</span></span>
+<span class="line"><span style="color:#24292E">{</span></span>
+<span class="line"><span style="color:#6F42C1">    LOCKTAG</span><span style="color:#24292E"> tag;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1">    SET_LOCKTAG_TRANSACTION</span><span style="color:#24292E">(tag, xid);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1">    LockAcquire</span><span style="color:#24292E">(</span></span>
+<span class="line"><span style="color:#D73A49">        &amp;</span><span style="color:#24292E">tag,</span></span>
+<span class="line"><span style="color:#24292E">        ExclusiveLock,</span></span>
+<span class="line"><span style="color:#005CC5">        false</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#005CC5">        false</span></span>
+<span class="line"><span style="color:#24292E">    );</span></span>
+<span class="line"><span style="color:#24292E">}</span></span></code></pre>
+<p>因此假设：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>Session 1 的 XID = 14165</span></span>
+<span class="line"><span>Session 2 的 XID = 14166</span></span></code></pre>
+<p>主锁表状态是：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>Session 1:</span></span>
+<span class="line"><span>    LOCKTAG_TRANSACTION(14165)</span></span>
+<span class="line"><span>    ExclusiveLock</span></span>
+<span class="line"><span>    granted = true</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>Session 2:</span></span>
+<span class="line"><span>    LOCKTAG_TRANSACTION(14166)</span></span>
+<span class="line"><span>    ExclusiveLock</span></span>
+<span class="line"><span>    granted = true</span></span></code></pre>
+<p>LOCKTAG_TRANSACTION 不符合 relation fast-path 条件，因此这两个事务锁会直接进入：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>LOCK hash</span></span>
+<span class="line"><span>PROCLOCK hash</span></span></code></pre>
+<h2 id="行锁主要记录在-tuple-header不为每一行长期保留-lock">行锁主要记录在 tuple header，不为每一行长期保留 LOCK</h2>
+<p>第一次更新成功后，tuple header 大致变成：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>id = 1 的旧版本：</span></span>
+<span class="line"><span>    xmax = 14165</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>id = 2 的旧版本：</span></span>
+<span class="line"><span>    xmax = 14166</span></span></code></pre>
+<p>所以：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>Session 1 更新 id=1</span></span>
+<span class="line"><span>  → id=1 的 tuple header 记录 XID 14165</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>Session 2 更新 id=2</span></span>
+<span class="line"><span>  → id=2 的 tuple header 记录 XID 14166</span></span></code></pre>
+<p>openGauss 不会为每一个被更新的 tuple 长期在共享锁表中保留一个 LOCKTAG_TUPLE，否则大事务更新数百万行时会消耗大量共享锁表空间。</p>
+<p>源码设计文档 src/gausskernel/storage/access/heap/README.tuplock 将其称为两级机制：</p>
+<p>第一层：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>tuple header 的 xmax + infomask</span></span>
+<span class="line"><span>保存行锁拥有者和模式</span></span></code></pre>
+<p>第二层：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>必须等待时，临时使用 LOCKTAG_TUPLE</span></span>
+<span class="line"><span>负责多个等待者的排队和公平性</span></span></code></pre>
+<h2 id="为什么还有临时-locktag_tuple">为什么还有临时 LOCKTAG_TUPLE</h2>
+<p>当 Session 1 尝试更新 id=2 时，heap_update() 看到：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>id=2.xmax = 14166</span></span>
+<span class="line"><span>事务 14166 仍在运行</span></span></code></pre>
+<p>在真正等待事务 14166 前，它先调用：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="cpp"><code><span class="line"><span style="color:#6F42C1">LOCK_TUPLE_TUP_LOCK</span><span style="color:#24292E">(</span></span>
+<span class="line"><span style="color:#24292E">    relation,</span></span>
+<span class="line"><span style="color:#D73A49">    &amp;</span><span style="color:#24292E">oldtup.t_self,</span></span>
+<span class="line"><span style="color:#24292E">    mode</span></span>
+<span class="line"><span style="color:#24292E">);</span></span></code></pre>
+<p>源码位于 src/gausskernel/storage/access/heap/heapam.cpp。</p>
+<p>本例只修改 value，不修改主键 id，在支持增强 tuple lock 的单机场景下通常选择：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="cpp"><code><span class="line"><span style="color:#24292E">mode </span><span style="color:#D73A49">=</span><span style="color:#24292E"> LockTupleNoKeyExclusive;</span></span></code></pre>
+<p>这个 tuple 语义模式映射到 heavyweight lock manager 的：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>ExclusiveLock</span></span></code></pre>
+<p>映射表位于 src/include/access/heapam.h：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>LockTupleKeyShare       → AccessShareLock</span></span>
+<span class="line"><span>LockTupleShared         → RowShareLock</span></span>
+<span class="line"><span>LockTupleNoKeyExclusive → ExclusiveLock</span></span>
+<span class="line"><span>LockTupleExclusive      → AccessExclusiveLock</span></span></code></pre>
+<p>LockTuple() 再构造：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="cpp"><code><span class="line"><span style="color:#24292E">LOCKTAG_TUPLE {</span></span>
+<span class="line"><span style="color:#24292E">    dbid,</span></span>
+<span class="line"><span style="color:#24292E">    relid,</span></span>
+<span class="line"><span style="color:#24292E">    bucketid,</span></span>
+<span class="line"><span style="color:#6F42C1">    block</span><span style="color:#24292E"> number,</span></span>
+<span class="line"><span style="color:#24292E">    offset number</span></span>
+<span class="line"><span style="color:#24292E">}</span></span></code></pre>
+<p>并调用普通 LockAcquire()，源码位于 src/gausskernel/storage/lmgr/lmgr.cpp。</p>
+<p>这个 tuple heavyweight lock 的作用是排队仲裁：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>LockTuple()</span></span>
+<span class="line"><span>  → XactLockTableWait()</span></span>
+<span class="line"><span>  → 成为下一位后重新检查 tuple header</span></span>
+<span class="line"><span>  → 完成更新</span></span>
+<span class="line"><span>  → UnlockTuple()</span></span></code></pre>
+<p>它不是长期行锁的主要载体，也不是错误消息里的 ShareLock。</p>
+<h2 id="为什么等待事务时请求-sharelock">为什么等待事务时请求 ShareLock</h2>
+<p>拿到 tuple 排队位置后，Session 1 执行：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="cpp"><code><span class="line"><span style="color:#6F42C1">XactLockTableWait</span><span style="color:#24292E">(xwait, </span><span style="color:#005CC5">true</span><span style="color:#24292E">);</span></span></code></pre>
+<p>这里：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>xwait = tuple header 中的 xmax</span></span></code></pre>
+<p>也就是 Session 2 的 XID 14166。</p>
+<p>源码位于 src/gausskernel/storage/lmgr/lmgr.cpp：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="cpp"><code><span class="line"><span style="color:#6F42C1">SET_LOCKTAG_TRANSACTION</span><span style="color:#24292E">(tag, xid);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1">LockAcquire</span><span style="color:#24292E">(</span></span>
+<span class="line"><span style="color:#D73A49">    &amp;</span><span style="color:#24292E">tag,</span></span>
+<span class="line"><span style="color:#24292E">    ShareLock,</span></span>
+<span class="line"><span style="color:#005CC5">    false</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#005CC5">    false</span></span>
+<span class="line"><span style="color:#24292E">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1">LockRelease</span><span style="color:#24292E">(</span></span>
+<span class="line"><span style="color:#D73A49">    &amp;</span><span style="color:#24292E">tag,</span></span>
+<span class="line"><span style="color:#24292E">    ShareLock,</span></span>
+<span class="line"><span style="color:#005CC5">    false</span></span>
+<span class="line"><span style="color:#24292E">);</span></span></code></pre>
+<p>之所以使用 ShareLock，是因为事务拥有者已经持有：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>LOCKTAG_TRANSACTION(xid) + ExclusiveLock</span></span></code></pre>
+<p>而冲突矩阵中：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>ShareLock 与 ExclusiveLock 冲突</span></span></code></pre>
+<p>因此：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>事务仍运行：</span></span>
+<span class="line"><span>    ExclusiveLock 未释放</span></span>
+<span class="line"><span>    ShareLock 请求被阻塞</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>事务提交或回滚：</span></span>
+<span class="line"><span>    ExclusiveLock 被释放</span></span>
+<span class="line"><span>    ShareLock 请求被唤醒并获得</span></span>
+<span class="line"><span>    XactLockTableWait() 随即释放 ShareLock 并返回</span></span></code></pre>
+<p>使用 ShareLock 还有一个重要好处：多个等待同一个事务结束的后端之间可以兼容。</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>T1 持有 XID 100 的 ExclusiveLock</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>T2 请求 XID 100 的 ShareLock</span></span>
+<span class="line"><span>T3 请求 XID 100 的 ShareLock</span></span>
+<span class="line"><span>T4 请求 XID 100 的 ShareLock</span></span></code></pre>
+<p>T2、T3、T4 不应该互相阻塞，它们只需要共同等待 T1。因此使用：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>一个 ExclusiveLock 拥有者</span></span>
+<span class="line"><span>多个相互兼容的 ShareLock 等待者</span></span></code></pre>
+<p>正好表达“大家一起等待同一个事务结束”的语义。</p>
+<p>这里的 ShareLock 与“共享读取这一行”没有关系。</p>
+<h2 id="本例的具体等待图">本例的具体等待图</h2>
+<p>第三步中，Session 1 更新 id=2：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>id=2.xmax = 14166</span></span>
+<span class="line"><span>  → XactLockTableWait(14166)</span></span>
+<span class="line"><span>  → 请求 ShareLock on transaction 14166</span></span>
+<span class="line"><span>  → 被 Session 2 的 ExclusiveLock 阻塞</span></span></code></pre>
+<p>第四步中，Session 2 更新 id=1：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>id=1.xmax = 14165</span></span>
+<span class="line"><span>  → XactLockTableWait(14165)</span></span>
+<span class="line"><span>  → 请求 ShareLock on transaction 14165</span></span>
+<span class="line"><span>  → 被 Session 1 的 ExclusiveLock 阻塞</span></span></code></pre>
+<p>形成：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>Session 1 / XID 14165</span></span>
+<span class="line"><span>    持有 ExclusiveLock on transaction 14165</span></span>
+<span class="line"><span>    等待 ShareLock on transaction 14166</span></span>
+<span class="line"><span>                    │</span></span>
+<span class="line"><span>                    ▼</span></span>
+<span class="line"><span>Session 2 / XID 14166</span></span>
+<span class="line"><span>    持有 ExclusiveLock on transaction 14166</span></span>
+<span class="line"><span>    等待 ShareLock on transaction 14165</span></span>
+<span class="line"><span>                    │</span></span>
+<span class="line"><span>                    └────────回到 Session 1</span></span></code></pre>
+<p>即：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>Session 1 → Session 2 → Session 1</span></span></code></pre>
+<p>这是只有 hard edge 的硬死锁，不能通过调整等待队列顺序解决。</p>
+<h2 id="sharelock-请求如何进入主锁表等待队列">ShareLock 请求如何进入主锁表等待队列</h2>
+<p>XactLockTableWait() 调用普通：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>LockAcquire()</span></span>
+<span class="line"><span>  → LockAcquireExtended()</span></span>
+<span class="line"><span>  → LockAcquireExtendedXC()</span></span></code></pre>
+<p>由于 LOCKTAG_TRANSACTION 不符合 relation fast-path，它进入主锁表：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>LockHashPartitionLock(hashcode)</span></span>
+<span class="line"><span>  → SetupLockInTable()</span></span>
+<span class="line"><span>       → LOCK hash</span></span>
+<span class="line"><span>       → PROCLOCK hash</span></span>
+<span class="line"><span>  → LockCheckConflicts()</span></span>
+<span class="line"><span>  → 发现对方 ExclusiveLock</span></span>
+<span class="line"><span>  → WaitOnLock()</span></span>
+<span class="line"><span>  → ProcSleep()</span></span>
+<span class="line"><span>  → 插入 LOCK.waitProcs</span></span></code></pre>
+<p>此时 PGPROC 中会记录：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>waitLock      → transaction 14165 或 14166 的 LOCK</span></span>
+<span class="line"><span>waitProcLock  → 当前等待者对应的 PROCLOCK</span></span>
+<span class="line"><span>waitLockMode  = ShareLock</span></span>
+<span class="line"><span>waitStatus    = STATUS_WAITING</span></span></code></pre>
+<p>所以死锁检测器看到的图是事务 ID 锁图，而不是直接扫描 tuple header。</p>
+<h2 id="死锁检测源码位置">死锁检测源码位置</h2>
+<p>等待超过 deadlock_timeout 后，ProcSleep() 的定时器触发 CheckDeadLock()。</p>
+<p>src/gausskernel/storage/lmgr/proc.cpp 先按顺序获取全部锁表分区 LWLock，然后调用：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="cpp"><code><span class="line"><span style="color:#24292E">t_thrd.storage_cxt.deadlock_state </span><span style="color:#D73A49">=</span></span>
+<span class="line"><span style="color:#6F42C1">    DeadLockCheck</span><span style="color:#24292E">(t_thrd.proc);</span></span></code></pre>
+<p>调用点位于 src/gausskernel/storage/lmgr/proc.cpp。</p>
+<p>真正的等待图搜索入口是：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>src/gausskernel/storage/lmgr/deadlock.cpp:193</span></span></code></pre>
+<p>核心过程是：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>DeadLockCheck()</span></span>
+<span class="line"><span>  → DeadLockCheckRecurse()</span></span>
+<span class="line"><span>  → TestConfiguration()</span></span>
+<span class="line"><span>  → FindLockCycle()</span></span>
+<span class="line"><span>  → FindLockCycleRecurse()</span></span>
+<span class="line"><span>  → 沿 PROCLOCK.holdMask 和 LOCK.waitProcs 构造等待边</span></span>
+<span class="line"><span>  → 再次回到起点，识别死锁环</span></span></code></pre>
+<p>本例两条边都来自已经授予的事务 ExclusiveLock，属于 hard edge，因此返回：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>DS_HARD_DEADLOCK</span></span></code></pre>
+<p>随后 CheckDeadLock()：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>RemoveFromWaitQueue()</span></span>
+<span class="line"><span>→ 当前检测进程 waitStatus = STATUS_ERROR</span></span>
+<span class="line"><span>→ 唤醒该进程的 semaphore</span></span></code></pre>
+<p>WaitOnLock() 发现 ProcSleep() 返回失败后，释放锁表分区 LWLock并调用：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="cpp"><code><span class="line"><span style="color:#6F42C1">DeadLockReport</span><span style="color:#24292E">();</span></span></code></pre>
+<p>调用位置：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>src/gausskernel/storage/lmgr/lock.cpp:1757</span></span></code></pre>
+<h2 id="错误文本在哪里生成">错误文本在哪里生成</h2>
+<p>最终错误在 src/gausskernel/storage/lmgr/deadlock.cpp 中生成。</p>
+<p>DETAIL 行来自：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="cpp"><code><span class="line"><span style="color:#6F42C1">appendStringInfo</span><span style="color:#24292E">(</span></span>
+<span class="line"><span style="color:#D73A49">    &amp;</span><span style="color:#24292E">clientbuf,</span></span>
+<span class="line"><span style="color:#032F62">    "Process </span><span style="color:#005CC5">%lu</span><span style="color:#032F62"> waits for </span><span style="color:#005CC5">%s</span><span style="color:#032F62"> on </span><span style="color:#005CC5">%s</span><span style="color:#032F62">; "</span></span>
+<span class="line"><span style="color:#032F62">    "blocked by process </span><span style="color:#005CC5">%lu</span><span style="color:#032F62">."</span><span style="color:#24292E">,</span></span>
+<span class="line"><span style="color:#24292E">    ...</span></span>
+<span class="line"><span style="color:#24292E">);</span></span></code></pre>
+<p>源码位于 src/gausskernel/storage/lmgr/deadlock.cpp。</p>
+<p>最终报错是：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="cpp"><code><span class="line"><span style="color:#6F42C1">ereport</span><span style="color:#24292E">(</span></span>
+<span class="line"><span style="color:#24292E">    ERROR,</span></span>
+<span class="line"><span style="color:#24292E">    (</span></span>
+<span class="line"><span style="color:#6F42C1">        errcode</span><span style="color:#24292E">(ERRCODE_T_R_DEADLOCK_DETECTED),</span></span>
+<span class="line"><span style="color:#6F42C1">        errmsg</span><span style="color:#24292E">(</span><span style="color:#032F62">"deadlock detected"</span><span style="color:#24292E">),</span></span>
+<span class="line"><span style="color:#6F42C1">        errdetail_internal</span><span style="color:#24292E">(</span><span style="color:#032F62">"</span><span style="color:#005CC5">%s</span><span style="color:#032F62">"</span><span style="color:#24292E">, clientbuf.data),</span></span>
+<span class="line"><span style="color:#6F42C1">        errhint</span><span style="color:#24292E">(</span><span style="color:#032F62">"See server log for query details."</span><span style="color:#24292E">)</span></span>
+<span class="line"><span style="color:#24292E">    )</span></span>
+<span class="line"><span style="color:#24292E">);</span></span></code></pre>
+<p>源码位于 src/gausskernel/storage/lmgr/deadlock.cpp。</p>
+<p>transaction 14165 这样的对象描述则由：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="cpp"><code><span class="line"><span style="color:#6F42C1">DescribeLockTag</span><span style="color:#24292E">()</span></span></code></pre>
+<p>处理 LOCKTAG_TRANSACTION 时生成。</p>
+<h2 id="关于会话-2-回滚的准确说法">关于“会话 2 回滚”的准确说法</h2>
+<p>本次运行中，会话 2 的检测器识别出硬死锁，所以会话 2 的当前事务被选为受害者。具体哪个会话成为受害者与检测时序有关，并不保证永远是最后执行 UPDATE 的会话。</p>
+<p>在显式：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="sql"><code><span class="line"><span style="color:#D73A49">BEGIN</span><span style="color:#24292E">;</span></span></code></pre>
+<p>事务块中，死锁 ERROR 会使当前事务进入 aborted 状态并释放事务资源，使另一个会话能够继续。客户端仍通常需要执行：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="sql"><code><span class="line"><span style="color:#D73A49">ROLLBACK</span><span style="color:#24292E">;</span></span></code></pre>
+<p>才能退出失败的事务块。</p>
+<p>最终可以把整个例子压缩为：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>UPDATE t1</span></span>
+<span class="line"><span>  → 对 t1 持有 RowExclusiveLock</span></span>
+<span class="line"><span>  → 对自己的 XID 持有 ExclusiveLock</span></span>
+<span class="line"><span>  → 把自己的 XID 写入目标 tuple 的 xmax</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>遇到别人正在更新的 tuple</span></span>
+<span class="line"><span>  → 从 tuple.xmax 得到对方 XID</span></span>
+<span class="line"><span>  → LockTuple() 做等待者仲裁</span></span>
+<span class="line"><span>  → 对对方 XID 请求 ShareLock</span></span>
+<span class="line"><span>  → ShareLock 与对方的 ExclusiveLock 冲突</span></span>
+<span class="line"><span>  → 进入事务锁等待队列</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>两个会话互相等待对方 XID</span></span>
+<span class="line"><span>  → XID 14165 → XID 14166</span></span>
+<span class="line"><span>  → XID 14166 → XID 14165</span></span>
+<span class="line"><span>  → DeadLockCheck() 发现环</span></span>
+<span class="line"><span>  → DeadLockReport() 报 deadlock detected</span></span></code></pre>
+</div></article></main></div><script type="module" src="/assets/BlogPost.astro_astro_type_script_index_0_lang.DWZnnEoa.js"></script><!--
+	展开与收起的按钮是一个箭头图标，位于代码块右上角。
+	收起时展示10行代码，代码块最后带有虚化渐变特效。
+	如果代码块行数小于10行，则没有展开与收起按钮。
+	默认展开。
+--><script type="module">document.querySelectorAll(`.article-content pre`).forEach((e,t)=>{if(e.closest(`.code-block-shell`))return;let n=(e.querySelector(`code`)?.textContent??e.textContent??``).replace(/\n$/,``),r=n.length===0?0:n.split(`
+`).length;if(r<10)return;let i=document.createElement(`div`),a=document.createElement(`button`),o=e.id||`long-code-block-${t+1}`;e.id=o,e.dataset.codeLineCount=String(r),i.className=`code-block-shell`,a.className=`code-block-toggle`,a.type=`button`,a.setAttribute(`aria-controls`,o),a.innerHTML=`<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m4 6 4 4 4-4"/></svg>`;let s=e=>{i.classList.toggle(`code-block-shell--expanded`,e),a.setAttribute(`aria-expanded`,String(e)),a.setAttribute(`aria-label`,e?`收起代码（${r} 行）`:`展开代码（${r} 行）`),a.title=e?`收起代码`:`展开代码`};e.before(i),i.append(e,a),s(!0),a.addEventListener(`click`,()=>{let e=a.getAttribute(`aria-expanded`)===`true`;s(!e)})});</script><dialog class="image-viewer" aria-label="原图查看器" data-astro-cid-zdmlxq35><div class="image-viewer-panel" data-astro-cid-zdmlxq35><button class="image-viewer-close" type="button" aria-label="关闭原图" data-astro-cid-zdmlxq35><span aria-hidden="true" data-astro-cid-zdmlxq35>×</span></button><div class="image-viewer-scroll" data-astro-cid-zdmlxq35><div class="image-viewer-stage" data-astro-cid-zdmlxq35><img class="image-viewer-image" alt="" data-astro-cid-zdmlxq35></div></div></div></dialog><script type="module">var e=document.querySelector(`.image-viewer`),t=e?.querySelector(`.image-viewer-image`),n=e?.querySelector(`.image-viewer-close`),r,i=e=>{let t=Number(e.getAttribute(`width`))||e.naturalWidth,n=Number(e.getAttribute(`height`))||e.naturalHeight,r=e.parentElement;t/n>=2.4&&r?.matches(`figure.image-figure`)&&r.classList.add(`wide-image`)},a=n=>{!e||!t||(r=n,t.src=n.currentSrc||n.src,t.alt=n.alt,e.showModal(),document.documentElement.classList.add(`image-viewer-open`))};document.querySelectorAll(`.article-content img`).forEach(e=>{i(e),e.complete||e.addEventListener(`load`,()=>i(e),{once:!0}),e.tabIndex=0,e.role=`button`,e.setAttribute(`aria-label`,e.alt?`查看原图：${e.alt}`:`查看原图`),e.addEventListener(`click`,()=>a(e)),e.addEventListener(`keydown`,t=>{(t.key===`Enter`||t.key===` `)&&(t.preventDefault(),a(e))})}),n?.addEventListener(`click`,()=>e?.close()),e?.addEventListener(`click`,t=>{t.target===e&&e.close()}),e?.addEventListener(`close`,()=>{document.documentElement.classList.remove(`image-viewer-open`),t?.removeAttribute(`src`),r?.focus(),r=void 0});</script><script type="module">document.querySelectorAll(`[data-keyword-filter]`).forEach(e=>{if(e.dataset.keywordFilterMounted===`true`)return;e.dataset.keywordFilterMounted=`true`;let t=Array.from(e.querySelectorAll(`[data-keyword]`)),n=Array.from(e.querySelectorAll(`[data-keyword-path]`)).map(e=>({element:e,keywords:new Set(JSON.parse(e.dataset.keywordPath??`[]`))})),r=Array.from(e.querySelectorAll(`.keyword-sentence-filter__sentences li`)).reverse(),i=e.querySelector(`[data-keyword-filter-status]`),a=e.querySelector(`[data-keyword-filter-clear]`),o=e.querySelector(`[data-keyword-filter-empty]`),s=new Set,c=()=>{let e=0;for(let t of n){let n=[...s].every(e=>t.keywords.has(e));t.element.hidden=!n,n&&(e+=1)}for(let e of r){if(e.dataset.keywordPath)continue;let t=Array.from(e.children).filter(e=>e.matches(`ul, ol`)).flatMap(e=>Array.from(e.children)).filter(e=>e instanceof HTMLElement);e.hidden=t.length>0&&t.every(e=>e.hidden)}for(let e of t)e.setAttribute(`aria-pressed`,String(s.has(e.dataset.keyword??``)));i&&(i.textContent=s.size===0?`共 ${n.length} 条路径`:`显示 ${e} / ${n.length} 条路径`),a&&(a.hidden=s.size===0),o&&(o.hidden=e!==0)};for(let e of t)e.addEventListener(`click`,()=>{let t=e.dataset.keyword;t&&(s.has(t)?s.delete(t):s.add(t),c())});a?.addEventListener(`click`,()=>{s.clear(),c()})});</script><script type="module">var e=document.querySelector(`.reading-navigation`);if(e){let t=Array.from(e.querySelectorAll(`details`));for(let e of t)e.addEventListener(`toggle`,()=>{if(e.open)for(let n of t)n!==e&&(n.open=!1)}),e.addEventListener(`click`,t=>{t.target.closest(`a`)&&(e.open=!1)});document.addEventListener(`click`,n=>{if(!e.contains(n.target))for(let e of t)e.open=!1})}</script></body></html>

@@ -1,0 +1,603 @@
+<!DOCTYPE html><html lang="zh-CN" data-astro-cid-tldeq5d5><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="generator" content="Astro v7.2.0"><title>GaussDB/OpenGauss锁管理 | Yinzuo Jiang</title><link rel="stylesheet" href="/assets/BlogPost.DMfLLSA3.css"><style>:root{--color-canvas:#f3ebdd;--color-ink:#2f2a26;--color-muted:#81786f;--color-line:#dfd7cd;--color-accent:#b66b50;--color-nav:#625d58;--color-link-underline:#c79b83;--color-link-hover:#713b2b;--font-serif:"Iowan Old Style", "Palatino Linotype", "Source Han Serif SC VF", "Noto Serif CJK SC", Georgia, serif;--font-sans:"Source Han Sans CN", "Noto Sans CJK SC", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;--font-mono:"SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;--mobile-nav-height:48px}*{box-sizing:border-box}html,body{background-color:var(--color-canvas);color:var(--color-ink)}html{scrollbar-gutter:stable}a{color:inherit;text-decoration-color:var(--color-link-underline);text-decoration-skip-ink:auto;text-underline-offset:.2em;text-decoration-line:underline;text-decoration-thickness:1px;transition:color .12s,text-decoration-color .12s}a:hover{color:var(--color-link-hover);text-decoration-color:currentColor}a:focus-visible{outline:2px solid var(--color-accent);outline-offset:3px;border-radius:1px}.private-lock{color:var(--color-muted);margin-left:.35em}.private-lock svg{vertical-align:-.1em;width:.75em;height:.75em;display:inline-block}.site-nav[data-astro-cid-rutobish]{z-index:10;background:var(--color-canvas);font-family:var(--font-mono);letter-spacing:0;align-items:center;padding:3px 0 3px 10px;font-size:15px;font-weight:700;line-height:1.4;display:flex;position:fixed;top:22px;right:clamp(16px,2vw,24px)}.site-nav[data-astro-cid-rutobish] a[data-astro-cid-rutobish]{color:var(--color-nav);text-decoration:none}.site-nav[data-astro-cid-rutobish] a[data-astro-cid-rutobish]+a[data-astro-cid-rutobish]{margin-left:16px}.site-nav[data-astro-cid-rutobish] a[data-astro-cid-rutobish]:hover{color:var(--color-accent)}.site-nav[data-astro-cid-rutobish] a[data-astro-cid-rutobish]:focus-visible{outline:2px solid var(--color-accent);outline-offset:3px}@media (width<=680px){.site-nav[data-astro-cid-rutobish]{z-index:30;width:auto;max-width:100%;min-height:calc(var(--mobile-nav-height) + env(safe-area-inset-top));padding:env(safe-area-inset-top) max(1rem, env(safe-area-inset-right)) 0 .75rem;justify-content:flex-end;top:0;left:auto;right:0}}@media print{.site-nav[data-astro-cid-rutobish]{display:none}}
+</style></head><body data-astro-cid-tldeq5d5><div class="page-shell" data-astro-cid-tldeq5d5><div class="nav-spacer" data-astro-cid-tldeq5d5><nav class="site-nav" aria-label="主导航" data-pagefind-ignore="all" data-astro-cid-rutobish><a href="/" data-astro-cid-rutobish>Home</a><a href="/posts/" aria-current="page" data-astro-cid-rutobish>Blog</a></nav></div><div class="reading-navigation" data-astro-cid-tldeq5d5><aside class="article-tree" aria-labelledby="article-tree-title" data-pagefind-ignore="all" data-astro-cid-qfudxec6><p id="article-tree-title" data-astro-cid-qfudxec6>文章导航</p><nav aria-label="相关文章" data-astro-cid-qfudxec6><ol data-astro-cid-qfudxec6><li class="tree-root" style="--tree-depth: 0" data-astro-cid-qfudxec6><a href="/posts/gaussdb/locking/" aria-current="page" data-astro-cid-qfudxec6><span class="tree-branch" aria-hidden="true" data-astro-cid-qfudxec6></span><span data-astro-cid-qfudxec6>GaussDB/OpenGauss锁管理</span></a></li><li style="--tree-depth: 1" data-astro-cid-qfudxec6><a href="/posts/gaussdb/locking/txn-deadlock-analysis/" data-astro-cid-qfudxec6><span class="tree-branch" aria-hidden="true" data-astro-cid-qfudxec6></span><span data-astro-cid-qfudxec6>UPDATE互相等待的死锁分析（gpt-5.6-sol生成）</span></a></li></ol></nav></aside><details class="article-tree-drawer" data-pagefind-ignore="all" data-astro-cid-qfudxec6><summary data-astro-cid-qfudxec6>文章导航</summary><nav aria-label="相关文章" data-astro-cid-qfudxec6><ol data-astro-cid-qfudxec6><li class="tree-root" style="--tree-depth: 0" data-astro-cid-qfudxec6><a href="/posts/gaussdb/locking/" aria-current="page" data-astro-cid-qfudxec6><span class="tree-branch" aria-hidden="true" data-astro-cid-qfudxec6></span><span data-astro-cid-qfudxec6>GaussDB/OpenGauss锁管理</span></a></li><li style="--tree-depth: 1" data-astro-cid-qfudxec6><a href="/posts/gaussdb/locking/txn-deadlock-analysis/" data-astro-cid-qfudxec6><span class="tree-branch" aria-hidden="true" data-astro-cid-qfudxec6></span><span data-astro-cid-qfudxec6>UPDATE互相等待的死锁分析（gpt-5.6-sol生成）</span></a></li></ol></nav></details><!--
+	目录保留独立滚动和最大高度，但隐藏浏览器默认滚动条，并用轻微的上下渐隐提示可滚动内容，避免滚动轨道造成视觉冲突。
+--><aside class="table-of-contents" aria-labelledby="toc-title" data-astro-cid-p33bl5ka><p id="toc-title" data-astro-cid-p33bl5ka>目录</p><nav class="toc-scroll-region" aria-label="文章目录" data-astro-cid-p33bl5ka><ol data-astro-cid-p33bl5ka><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#locking-overview" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>1</span>Locking Overview</a></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#自旋锁" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>2</span>自旋锁</a></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#常规锁heavyweight-lock" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>3</span>常规锁（Heavyweight Lock）</a><ol class="toc-subsections" data-astro-cid-p33bl5ka><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#类型locktagtype" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>3.1</span>类型（LockTagType）</a></li><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#锁模式" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>3.2</span>锁模式</a></li><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#优化点" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>3.3</span>优化点</a></li></ol></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#hashtable锁表实现" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>4</span>Hashtable锁表实现</a></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#锁调用路径以relation_open为例" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>5</span>锁调用路径，以relation_open为例</a><ol class="toc-subsections" data-astro-cid-p33bl5ka><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#查找创建locallock" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>5.1</span>查找/创建LOCALLOCK</a></li></ol></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#锁等待队列" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>6</span>锁等待队列</a></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#死锁检测算法" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>7</span>死锁检测算法</a><ol class="toc-subsections" data-astro-cid-p33bl5ka><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#延迟检测" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>7.1</span>延迟检测</a></li></ol></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#footnote-label" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>8</span>Footnotes</a></li></ol></nav></aside><details class="toc-drawer" data-pagefind-ignore="all" data-astro-cid-p33bl5ka><summary data-astro-cid-p33bl5ka>本页目录</summary><nav class="toc-scroll-region" aria-label="文章目录" data-astro-cid-p33bl5ka><ol data-astro-cid-p33bl5ka><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#locking-overview" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>1</span>Locking Overview</a></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#自旋锁" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>2</span>自旋锁</a></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#常规锁heavyweight-lock" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>3</span>常规锁（Heavyweight Lock）</a><ol class="toc-subsections" data-astro-cid-p33bl5ka><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#类型locktagtype" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>3.1</span>类型（LockTagType）</a></li><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#锁模式" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>3.2</span>锁模式</a></li><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#优化点" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>3.3</span>优化点</a></li></ol></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#hashtable锁表实现" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>4</span>Hashtable锁表实现</a></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#锁调用路径以relation_open为例" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>5</span>锁调用路径，以relation_open为例</a><ol class="toc-subsections" data-astro-cid-p33bl5ka><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#查找创建locallock" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>5.1</span>查找/创建LOCALLOCK</a></li></ol></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#锁等待队列" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>6</span>锁等待队列</a></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#死锁检测算法" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>7</span>死锁检测算法</a><ol class="toc-subsections" data-astro-cid-p33bl5ka><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#延迟检测" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>7.1</span>延迟检测</a></li></ol></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#footnote-label" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>8</span>Footnotes</a></li></ol></nav></details><script type="module">var e=e=>{let t=e.clientHeight>0&&e.scrollHeight>e.clientHeight+1,n=t&&e.scrollTop>1,r=t&&e.scrollTop+e.clientHeight<e.scrollHeight-1;e.classList.toggle(`toc-scroll-region--above`,n),e.classList.toggle(`toc-scroll-region--below`,r)};document.querySelectorAll(`.toc-scroll-region`).forEach(t=>{let n=()=>e(t);t.addEventListener(`scroll`,n,{passive:!0}),new ResizeObserver(n).observe(t),n()}),document.querySelector(`.toc-drawer`)?.addEventListener(`toggle`,t=>{let n=t.currentTarget.querySelector(`.toc-scroll-region`);n&&requestAnimationFrame(()=>e(n))});</script></div><main class="content-layout" data-astro-cid-tldeq5d5><article class="article-frame" data-pagefind-body data-astro-cid-tldeq5d5><header class="article-header" data-astro-cid-tldeq5d5><h1 data-astro-cid-tldeq5d5>GaussDB/OpenGauss锁管理</h1></header><div class="article-content" data-astro-cid-tldeq5d5><h2 id="locking-overview">Locking Overview</h2>
+<table>
+<thead>
+<tr>
+<th>锁类型</th>
+<th>保护对象</th>
+<th>运行机制</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>自旋锁 (Spinlock)</td>
+<td>极短时间的共享内存变量/状态位</td>
+<td>基于硬件原子指令（如 CAS/TAS），忙等（Busy-loop），无死锁检测，超时约 1 分钟报 Error</td>
+</tr>
+<tr>
+<td>轻量级锁 (LWLock)</td>
+<td>共享内存数据结构（如 Buffer 缓冲区、CLOG、ProcArray 等）</td>
+<td>支持共享 (S) 与排他 (X) 模式；无死锁检测；冲突时线程挂起睡眠，按到达顺序（FIFO）唤醒</td>
+</tr>
+<tr>
+<td>常规锁 (Heavyweight Lock)</td>
+<td>用户可见的数据库对象（表、分区、页面、元组、Advisory 锁）</td>
+<td>8 种锁模式（如 AccessShare 到 AccessExclusive）；由 Lock Manager 管理，带完整死锁检测与事务结束自动释放</td>
+</tr>
+<tr>
+<td>谓词锁 (Predicate Lock)</td>
+<td>串行化隔离级别 (SSI)</td>
+<td>SIReadLock 机制，记录事务间的“读-写”依赖</td>
+</tr>
+</tbody>
+</table>
+<p><a href="https://gitcode.com/opengauss/openGauss-server/blob/master/src/gausskernel/storage/lmgr/README">https://gitcode.com/opengauss/openGauss-server/blob/master/src/gausskernel/storage/lmgr/README</a></p>
+<h2 id="自旋锁">自旋锁</h2>
+<p><code>s_lock.h</code>，<code>atomic.h</code>。OpenGauss针对鲲鹏ARM架构写了一些硬件指令。</p>
+<h2 id="常规锁heavyweight-lock">常规锁（Heavyweight Lock）</h2>
+<h3 id="类型locktagtype">类型（LockTagType）</h3>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="cpp"><code><span class="line"><span style="color:#6A737D">/*</span></span>
+<span class="line"><span style="color:#6A737D"> * LOCKTAG is the key information needed to look up a LOCK item in the</span></span>
+<span class="line"><span style="color:#6A737D"> * lock hashtable.	A LOCKTAG value uniquely identifies a lockable object.</span></span>
+<span class="line"><span style="color:#6A737D"> *</span></span>
+<span class="line"><span style="color:#6A737D"> * The LockTagType enum defines the different kinds of objects we can lock.</span></span>
+<span class="line"><span style="color:#6A737D"> * We can handle up to 256 different LockTagTypes.</span></span>
+<span class="line"><span style="color:#6A737D"> */</span></span>
+<span class="line"><span style="color:#D73A49">typedef</span><span style="color:#D73A49"> enum</span><span style="color:#24292E"> LockTagType {</span></span>
+<span class="line"><span style="color:#24292E">    LOCKTAG_RELATION,</span><span style="color:#6A737D"> /* whole relation */</span></span>
+<span class="line"><span style="color:#6A737D">    /* ID info for a relation is DB OID + REL OID; DB OID = 0 if shared */</span></span>
+<span class="line"><span style="color:#24292E">    LOCKTAG_RELATION_EXTEND,</span><span style="color:#6A737D"> /* the right to extend a relation */</span></span>
+<span class="line"><span style="color:#6A737D">    /* same ID info as RELATION */</span></span>
+<span class="line"><span style="color:#24292E">    LOCKTAG_PARTITION,</span><span style="color:#6A737D">          /*partition*/</span></span>
+<span class="line"><span style="color:#24292E">    LOCKTAG_PARTITION_SEQUENCE,</span><span style="color:#6A737D"> /*partition sequence*/</span></span>
+<span class="line"><span style="color:#24292E">    LOCKTAG_PAGE,</span><span style="color:#6A737D">               /* one page of a relation */</span></span>
+<span class="line"><span style="color:#6A737D">    /* ID info for a page is RELATION info + BlockNumber */</span></span>
+<span class="line"><span style="color:#24292E">    LOCKTAG_TUPLE,</span><span style="color:#6A737D"> /* one physical tuple */</span></span>
+<span class="line"><span style="color:#6A737D">    /* ID info for a tuple is PAGE info + OffsetNumber */</span></span>
+<span class="line"><span style="color:#24292E">    LOCKTAG_TRANSACTION,</span><span style="color:#6A737D"> /* transaction (for waiting for xact done) */</span></span>
+<span class="line"><span style="color:#6A737D">    /* ID info for a transaction is its TransactionId */</span></span>
+<span class="line"><span style="color:#24292E">    LOCKTAG_VIRTUALTRANSACTION,</span><span style="color:#6A737D"> /* virtual transaction (ditto) */</span></span>
+<span class="line"><span style="color:#6A737D">    /* ID info for a virtual transaction is its VirtualTransactionId */</span></span>
+<span class="line"><span style="color:#24292E">    LOCKTAG_OBJECT,</span><span style="color:#6A737D"> /* non-relation database object */</span></span>
+<span class="line"><span style="color:#6A737D">    /* ID info for an object is DB OID + CLASS OID + OBJECT OID + SUBID */</span></span>
+<span class="line"><span style="color:#24292E">    LOCKTAG_CSTORE_FREESPACE,</span><span style="color:#6A737D"> /* cstore free space */</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /*</span></span>
+<span class="line"><span style="color:#6A737D">     * Note: object ID has same representation as in pg_depend and</span></span>
+<span class="line"><span style="color:#6A737D">     * pg_description, but notice that we are constraining SUBID to 16 bits.</span></span>
+<span class="line"><span style="color:#6A737D">     * Also, we use DB OID = 0 for shared objects such as tablespaces.</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#24292E">    LOCKTAG_USERLOCK,</span><span style="color:#6A737D"> /* reserved for old contrib/userlock code */</span></span>
+<span class="line"><span style="color:#24292E">    LOCKTAG_ADVISORY,</span><span style="color:#6A737D"> /* advisory user locks */</span></span>
+<span class="line"><span style="color:#6A737D">    /* same ID info as spcoid, dboid, reloid */</span></span>
+<span class="line"><span style="color:#24292E">    LOCKTAG_RELFILENODE,</span><span style="color:#6A737D"> /* relfilenode */</span></span>
+<span class="line"><span style="color:#24292E">    LOCKTAG_SUBTRANSACTION,</span><span style="color:#6A737D"> /* subtransaction (for waiting for subxact done) */</span></span>
+<span class="line"><span style="color:#6A737D">    /* ID info for a transaction is its TransactionId + SubTransactionId */</span></span>
+<span class="line"><span style="color:#24292E">    LOCKTAG_UID,</span></span>
+<span class="line"><span style="color:#24292E">    LOCKTAG_TABLESPACE,</span></span>
+<span class="line"><span style="color:#24292E">    LOCKTAG_PLPY_GIL,</span></span>
+<span class="line"><span style="color:#24292E">    LOCK_EVENT_NUM</span></span>
+<span class="line"><span style="color:#24292E">} LockTagType;</span></span></code></pre>
+<h4 id="数据库对象锁">数据库对象锁</h4>
+<ul>
+<li>LOCKTAG_RELATION
+<ul>
+<li>relation_open</li>
+</ul>
+</li>
+<li>LOCKTAG_PARTITION</li>
+<li>LOCKTAG_PAGE</li>
+<li>…</li>
+</ul>
+<h4 id="咨询锁locktag_advisory">咨询锁（LOCKTAG_ADVISORY）</h4>
+<h4 id="事务id锁locktag_transaction">事务ID锁（LOCKTAG_TRANSACTION）</h4>
+<h5 id="构造死锁场景">构造死锁场景</h5>
+<blockquote>
+<p>Docker安装OpenGauss参考<sup><a href="#user-content-fn-install" id="user-content-fnref-install" data-footnote-ref aria-describedby="footnote-label">1</a></sup></p>
+</blockquote>
+<p>创建表并插入数据</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="sql"><code><span class="line"><span style="color:#D73A49">CREATE</span><span style="color:#D73A49"> TABLE</span><span style="color:#6F42C1"> t1</span><span style="color:#24292E"> (id </span><span style="color:#D73A49">int</span><span style="color:#D73A49"> PRIMARY KEY</span><span style="color:#24292E">, </span><span style="color:#D73A49">value</span><span style="color:#D73A49"> int</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#D73A49">INSERT INTO</span><span style="color:#24292E"> t1 </span><span style="color:#D73A49">VALUES</span><span style="color:#24292E"> (</span><span style="color:#005CC5">1</span><span style="color:#24292E">, </span><span style="color:#005CC5">111</span><span style="color:#24292E">), (</span><span style="color:#005CC5">2</span><span style="color:#24292E">, </span><span style="color:#005CC5">222</span><span style="color:#24292E">);</span></span></code></pre>
+<p>按照以下步骤在两个独立的数据库会话（Session 1 和 Session 2）中操作。</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left">步骤</th>
+<th style="text-align: left">会话1</th>
+<th style="text-align: left">会话2</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left"><strong>1</strong></td>
+<td style="text-align: left"><code>BEGIN;</code></td>
+<td style="text-align: left"><code>BEGIN;</code></td>
+</tr>
+<tr>
+<td style="text-align: left"><strong>2</strong></td>
+<td style="text-align: left"><code>UPDATE t1 SET value = 444 WHERE id = 1;</code> (成功，持有id=1的行锁)</td>
+<td style="text-align: left"><code>UPDATE t1 SET value = 555 WHERE id = 2;</code> (成功，持有id=2的行锁)</td>
+</tr>
+<tr>
+<td style="text-align: left"><strong>3</strong></td>
+<td style="text-align: left"><code>UPDATE t1 SET value = 666 WHERE id = 2;</code> (<strong>被阻塞</strong>，等待会话2释放id=2的行锁)</td>
+<td style="text-align: left"></td>
+</tr>
+<tr>
+<td style="text-align: left"><strong>4</strong></td>
+<td style="text-align: left"></td>
+<td style="text-align: left"><code>UPDATE t1 SET value = 777 WHERE id = 1;</code> (<strong>死锁检测触发</strong>，会话2报错并回滚)</td>
+</tr>
+</tbody>
+</table>
+<p>会话2会报以下的错误：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="plaintext"><code><span class="line"><span>openGauss=# UPDATE t1 SET value = 777 WHERE id = 1;</span></span>
+<span class="line"><span>ERROR:  deadlock detected</span></span>
+<span class="line"><span>DETAIL:  Process 139219895842304 waits for ShareLock on transaction 14165; blocked by process 139219937785344.</span></span>
+<span class="line"><span>Process 139219937785344 waits for ShareLock on transaction 14166; blocked by process 139219895842304.</span></span>
+<span class="line"><span>HINT:  See server log for query details.</span></span></code></pre>
+<h5 id="源码加锁分析">源码加锁分析</h5>
+<p>关键源码：搜索<code>LOCKTAG_TRANSACTION</code>。事务开始时持有自己xid的<code>ExclusiveLock</code>，其它事务等锁
+需要加<code>ShareLock</code>。</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="cpp"><code><span class="line"><span style="color:#6A737D">/*</span></span>
+<span class="line"><span style="color:#6A737D"> *		XactLockTableInsert</span></span>
+<span class="line"><span style="color:#6A737D"> *</span></span>
+<span class="line"><span style="color:#6A737D"> * Insert a lock showing that the given transaction ID is running ---</span></span>
+<span class="line"><span style="color:#6A737D"> * this is done when an XID is acquired by a transaction or subtransaction.</span></span>
+<span class="line"><span style="color:#6A737D"> * The lock can then be used to wait for the transaction to finish.</span></span>
+<span class="line"><span style="color:#6A737D"> */</span></span>
+<span class="line"><span style="color:#D73A49">void</span><span style="color:#6F42C1"> XactLockTableInsert</span><span style="color:#24292E">(</span><span style="color:#6F42C1">TransactionId</span><span style="color:#E36209"> xid</span><span style="color:#24292E">)</span></span>
+<span class="line"><span style="color:#24292E">{</span></span>
+<span class="line"><span style="color:#6F42C1">    LOCKTAG</span><span style="color:#24292E"> tag;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1">    SET_LOCKTAG_TRANSACTION</span><span style="color:#24292E">(tag, xid);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">    (</span><span style="color:#D73A49">void</span><span style="color:#24292E">)</span><span style="color:#6F42C1">LockAcquire</span><span style="color:#24292E">(</span><span style="color:#D73A49">&amp;</span><span style="color:#24292E">tag, ExclusiveLock, </span><span style="color:#005CC5">false</span><span style="color:#24292E">, </span><span style="color:#005CC5">false</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#24292E">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">/*</span></span>
+<span class="line"><span style="color:#6A737D"> *		XactLockTableWait</span></span>
+<span class="line"><span style="color:#6A737D"> *</span></span>
+<span class="line"><span style="color:#6A737D"> * Wait for the specified transaction to commit or abort.</span></span>
+<span class="line"><span style="color:#6A737D"> *</span></span>
+<span class="line"><span style="color:#6A737D"> * Note that this does the right thing for subtransactions: if we wait on a</span></span>
+<span class="line"><span style="color:#6A737D"> * subtransaction, we will exit as soon as it aborts or its top parent commits.</span></span>
+<span class="line"><span style="color:#6A737D"> * It takes some extra work to ensure this, because to save on shared memory</span></span>
+<span class="line"><span style="color:#6A737D"> * the XID lock of a subtransaction is released when it ends, whether</span></span>
+<span class="line"><span style="color:#6A737D"> * successfully or unsuccessfully.	So we have to check if it's "still running"</span></span>
+<span class="line"><span style="color:#6A737D"> * and if so wait for its parent.</span></span>
+<span class="line"><span style="color:#6A737D"> */</span></span>
+<span class="line"><span style="color:#D73A49">void</span><span style="color:#6F42C1"> XactLockTableWait</span><span style="color:#24292E">(</span><span style="color:#6F42C1">TransactionId</span><span style="color:#E36209"> xid</span><span style="color:#24292E">, </span><span style="color:#D73A49">bool</span><span style="color:#E36209"> allow_con_update</span><span style="color:#24292E">, </span><span style="color:#D73A49">int</span><span style="color:#E36209"> waitSec</span><span style="color:#24292E">)</span></span>
+<span class="line"><span style="color:#24292E">{</span></span>
+<span class="line"><span style="color:#6F42C1">    LOCKTAG</span><span style="color:#24292E"> tag;</span></span>
+<span class="line"><span style="color:#6F42C1">    CLogXidStatus</span><span style="color:#24292E"> status </span><span style="color:#D73A49">=</span><span style="color:#24292E"> CLOG_XID_STATUS_IN_PROGRESS;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">    for</span><span style="color:#24292E"> (;;) {</span></span>
+<span class="line"><span style="color:#D73A49">        if</span><span style="color:#24292E"> (</span><span style="color:#D73A49">!</span><span style="color:#6F42C1">TransactionIdIsValid</span><span style="color:#24292E">(xid))</span></span>
+<span class="line"><span style="color:#D73A49">            break</span><span style="color:#24292E">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1">        Assert</span><span style="color:#24292E">(</span><span style="color:#D73A49">!</span><span style="color:#6F42C1">TransactionIdEquals</span><span style="color:#24292E">(xid, </span><span style="color:#6F42C1">GetTopTransactionIdIfAny</span><span style="color:#24292E">()) </span><span style="color:#D73A49">||</span><span style="color:#24292E"> status </span><span style="color:#D73A49">==</span><span style="color:#24292E"> CLOG_XID_STATUS_COMMITTED </span><span style="color:#D73A49">||</span></span>
+<span class="line"><span style="color:#24292E">               status </span><span style="color:#D73A49">==</span><span style="color:#24292E"> CLOG_XID_STATUS_ABORTED);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1">        SET_LOCKTAG_TRANSACTION</span><span style="color:#24292E">(tag, xid);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">        (</span><span style="color:#D73A49">void</span><span style="color:#24292E">)</span><span style="color:#6F42C1">LockAcquire</span><span style="color:#24292E">(</span><span style="color:#D73A49">&amp;</span><span style="color:#24292E">tag, ShareLock, </span><span style="color:#005CC5">false</span><span style="color:#24292E">, </span><span style="color:#005CC5">false</span><span style="color:#24292E">, allow_con_update, waitSec);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">        (</span><span style="color:#D73A49">void</span><span style="color:#24292E">)</span><span style="color:#6F42C1">LockRelease</span><span style="color:#24292E">(</span><span style="color:#D73A49">&amp;</span><span style="color:#24292E">tag, ShareLock, </span><span style="color:#005CC5">false</span><span style="color:#24292E">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">        if</span><span style="color:#24292E"> (</span><span style="color:#D73A49">!</span><span style="color:#6F42C1">TransactionIdIsInProgress</span><span style="color:#24292E">(xid))</span></span>
+<span class="line"><span style="color:#D73A49">            break</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#24292E">        xid </span><span style="color:#D73A49">=</span><span style="color:#6F42C1"> SubTransGetParent</span><span style="color:#24292E">(xid, </span><span style="color:#D73A49">&amp;</span><span style="color:#24292E">status, </span><span style="color:#005CC5">true</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"><span style="color:#24292E">}</span></span></code></pre>
+<p><a href="/posts/gaussdb/locking/txn-deadlock-analysis/">GPT-5.6-sol分析</a></p>
+<h3 id="锁模式">锁模式</h3>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="cpp"><code><span class="line"><span style="color:#6A737D">/* NoLock is not a lock mode, but a flag value meaning "don't get a lock" */</span></span>
+<span class="line"><span style="color:#D73A49">#define</span><span style="color:#6F42C1"> NoLock</span><span style="color:#005CC5"> 0</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">#define</span><span style="color:#6F42C1"> AccessShareLock</span><span style="color:#005CC5"> 1</span><span style="color:#6A737D">  /* SELECT */</span></span>
+<span class="line"><span style="color:#D73A49">#define</span><span style="color:#6F42C1"> RowShareLock</span><span style="color:#005CC5"> 2</span><span style="color:#6A737D">     /* SELECT FOR UPDATE/FOR SHARE */</span></span>
+<span class="line"><span style="color:#D73A49">#define</span><span style="color:#6F42C1"> RowExclusiveLock</span><span style="color:#005CC5"> 3</span><span style="color:#6A737D"> /* INSERT, UPDATE, DELETE */</span></span>
+<span class="line"><span style="color:#D73A49">#define</span><span style="color:#6F42C1"> ShareUpdateExclusiveLock</span><span style="color:#005CC5">                         \</span></span>
+<span class="line"><span style="color:#005CC5">    4</span><span style="color:#6A737D">               /* VACUUM (non-FULL),ANALYZE, CREATE \</span></span>
+<span class="line"><span style="color:#6A737D">                     * INDEX CONCURRENTLY */</span></span>
+<span class="line"><span style="color:#D73A49">#define</span><span style="color:#6F42C1"> ShareLock</span><span style="color:#005CC5"> 5</span><span style="color:#6A737D"> /* CREATE INDEX (WITHOUT CONCURRENTLY) */</span></span>
+<span class="line"><span style="color:#D73A49">#define</span><span style="color:#6F42C1"> ShareRowExclusiveLock</span><span style="color:#005CC5">                \</span></span>
+<span class="line"><span style="color:#005CC5">    6</span><span style="color:#6A737D"> /* like EXCLUSIVE MODE, but allows ROW \</span></span>
+<span class="line"><span style="color:#6A737D">       * SHARE */</span></span>
+<span class="line"><span style="color:#D73A49">#define</span><span style="color:#6F42C1"> ExclusiveLock</span><span style="color:#005CC5">                  \</span></span>
+<span class="line"><span style="color:#005CC5">    7</span><span style="color:#6A737D"> /* blocks ROW SHARE/SELECT...FOR \</span></span>
+<span class="line"><span style="color:#6A737D">       * UPDATE */</span></span>
+<span class="line"><span style="color:#D73A49">#define</span><span style="color:#6F42C1"> AccessExclusiveLock</span><span style="color:#005CC5">              \</span></span>
+<span class="line"><span style="color:#005CC5">    8</span><span style="color:#6A737D"> /* ALTER TABLE, DROP TABLE, VACUUM \</span></span>
+<span class="line"><span style="color:#6A737D">       * FULL, and unqualified LOCK TABLE */</span></span></code></pre>
+<figure class="image-figure"><img  src="/assets/lock-matrix.DcB-CkWh_Z1Y14oW.webp" alt="GaussDB锁相容矩阵" loading="lazy" decoding="async" width="1957" height="537"><figcaption>GaussDB锁相容矩阵<sup><a href="#user-content-fn-1" id="user-content-fnref-1" data-footnote-ref aria-describedby="footnote-label">2</a></sup></figcaption></figure>
+<p>从加锁路径角度来看，</p>
+<ul>
+<li>1-3级属于弱锁，互相不会阻塞，加锁时有机会走fastpath路径。</li>
+<li>5-8级属于强锁，可能阻塞1-3级锁。</li>
+</ul>
+<aside aria-label="Note" class="note-block"><p>得益于MVCC机制，INSERT的3级锁不会阻塞SELECT的1级锁。
+SHARE和EXCLUSIVE就是一对读写锁。advisory_lock的实现就是EXCLUSIVE和SHARE。</p></aside>
+<h3 id="优化点">优化点</h3>
+<ul>
+<li>Hashtable锁表优化
+<ul>
+<li>Fast-path</li>
+<li>Hash分区（PG8.2）提高并发度</li>
+</ul>
+</li>
+<li>页内锁</li>
+</ul>
+<h2 id="hashtable锁表实现">Hashtable锁表实现</h2>
+<p>在关系型数据库内核中，锁管理器（Lock Manager）主要负责维护当前系统中所有被锁定的资源（表、页、行、事务等）以及正在等待锁的事务队列。</p>
+<table>
+<thead>
+<tr>
+<th>数据结构</th>
+<th>所在的 hash table</th>
+<th>是否所有后端共享</th>
+<th>hash key</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>LOCK</code></td>
+<td><code>LockMethodLockHash</code>，即 <code>LOCK hash</code></td>
+<td>是，共享内存</td>
+<td><code>LOCKTAG</code></td>
+</tr>
+<tr>
+<td><code>PROCLOCK</code></td>
+<td><code>LockMethodProcLockHash</code>，即 <code>PROCLOCK hash</code></td>
+<td>是，共享内存</td>
+<td><code>{LOCK *, PGPROC *}</code>，即锁对象和后端进程的组合</td>
+</tr>
+<tr>
+<td><code>LOCALLOCK</code></td>
+<td><code>LockMethodLocalHash</code></td>
+<td>否，每个后端一份</td>
+<td><code>LOCALLOCKTAG = {LOCKTAG, LOCKMODE}</code></td>
+</tr>
+</tbody>
+</table>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="cpp"><code><span class="line"><span style="color:#D73A49">typedef</span><span style="color:#D73A49"> struct</span><span style="color:#6F42C1"> LOCK</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#6A737D">    /* hash key */</span></span>
+<span class="line"><span style="color:#6F42C1">    LOCKTAG</span><span style="color:#24292E"> tag;</span><span style="color:#6A737D"> /* unique identifier of lockable object */</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /* data */</span></span>
+<span class="line"><span style="color:#6F42C1">    LOCKMASK</span><span style="color:#24292E"> grantMask;</span><span style="color:#6A737D">           /* bitmask for lock types already granted */</span></span>
+<span class="line"><span style="color:#6F42C1">    LOCKMASK</span><span style="color:#24292E"> waitMask;</span><span style="color:#6A737D">            /* bitmask for lock types awaited */</span></span>
+<span class="line"><span style="color:#6F42C1">    SHM_QUEUE</span><span style="color:#24292E"> procLocks;</span><span style="color:#6A737D">          /* list of PROCLOCK objects assoc. with lock */</span></span>
+<span class="line"><span style="color:#6F42C1">    LOCKMASK</span><span style="color:#24292E"> waitMask;</span><span style="color:#6A737D">            /* bitmask for lock types awaited */</span></span>
+<span class="line"><span style="color:#6F42C1">    SHM_QUEUE</span><span style="color:#24292E"> procLocks;</span><span style="color:#6A737D">          /* list of PROCLOCK objects assoc. with lock */</span></span>
+<span class="line"><span style="color:#6F42C1">    PROC_QUEUE</span><span style="color:#24292E"> waitProcs;</span><span style="color:#6A737D">         /* list of PGPROC objects waiting on lock */</span></span>
+<span class="line"><span style="color:#D73A49">    int</span><span style="color:#24292E"> requested[MAX_LOCKMODES];</span><span style="color:#6A737D"> /* counts of requested locks */</span></span>
+<span class="line"><span style="color:#D73A49">    int</span><span style="color:#24292E"> nRequested;</span><span style="color:#6A737D">               /* total of requested[] array */</span></span>
+<span class="line"><span style="color:#D73A49">    int</span><span style="color:#24292E"> granted[MAX_LOCKMODES];</span><span style="color:#6A737D">   /* counts of granted locks */</span></span>
+<span class="line"><span style="color:#D73A49">    int</span><span style="color:#24292E"> nGranted;</span><span style="color:#6A737D">                 /* total of granted[] array */</span></span>
+<span class="line"><span style="color:#24292E">} </span><span style="color:#6F42C1">LOCK</span><span style="color:#24292E">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">typedef</span><span style="color:#D73A49"> struct</span><span style="color:#6F42C1"> PROCLOCKTAG</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#6A737D">    /* NB: we assume this struct contains no padding! */</span></span>
+<span class="line"><span style="color:#6F42C1">    LOCK</span><span style="color:#D73A49">*</span><span style="color:#24292E"> myLock;</span><span style="color:#6A737D">   /* link to per-lockable-object information */</span></span>
+<span class="line"><span style="color:#6F42C1">    PGPROC</span><span style="color:#D73A49">*</span><span style="color:#24292E"> myProc;</span><span style="color:#6A737D"> /* link to PGPROC of owning backend */</span></span>
+<span class="line"><span style="color:#24292E">} </span><span style="color:#6F42C1">PROCLOCKTAG</span><span style="color:#24292E">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">typedef</span><span style="color:#D73A49"> struct</span><span style="color:#6F42C1"> PROCLOCK</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#6A737D">    /* tag */</span></span>
+<span class="line"><span style="color:#6F42C1">    PROCLOCKTAG</span><span style="color:#24292E"> tag;</span><span style="color:#6A737D"> /* unique identifier of proclock object */</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /* data */</span></span>
+<span class="line"><span style="color:#6F42C1">    PGPROC</span><span style="color:#D73A49">  *</span><span style="color:#24292E">groupLeader;</span><span style="color:#6A737D"> /* group leader, or NULL if no lock group */</span><span style="color:#24292E">	</span></span>
+<span class="line"><span style="color:#6F42C1">    LOCKMASK</span><span style="color:#24292E"> holdMask;</span><span style="color:#6A737D">    /* bitmask for lock types currently held */</span></span>
+<span class="line"><span style="color:#6F42C1">    LOCKMASK</span><span style="color:#24292E"> releaseMask;</span><span style="color:#6A737D"> /* bitmask for lock types to be released */</span></span>
+<span class="line"><span style="color:#6F42C1">    SHM_QUEUE</span><span style="color:#24292E"> lockLink;</span><span style="color:#6A737D">   /* list link in LOCK's list of proclocks */</span></span>
+<span class="line"><span style="color:#6F42C1">    SHM_QUEUE</span><span style="color:#24292E"> procLink;</span><span style="color:#6A737D">   /* list link in PGPROC's list of proclocks */</span></span>
+<span class="line"><span style="color:#24292E">} </span><span style="color:#6F42C1">PROCLOCK</span><span style="color:#24292E">;</span></span></code></pre>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="cpp"><code><span class="line"><span style="color:#D73A49">typedef</span><span style="color:#D73A49"> struct</span><span style="color:#6F42C1"> LOCALLOCK</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#6A737D">    /* tag */</span></span>
+<span class="line"><span style="color:#6F42C1">    LOCALLOCKTAG</span><span style="color:#24292E"> tag;</span><span style="color:#6A737D"> /* unique identifier of locallock entry */</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /* data */</span></span>
+<span class="line"><span style="color:#6F42C1">    LOCK</span><span style="color:#D73A49">*</span><span style="color:#24292E"> lock;</span><span style="color:#6A737D">                 /* associated LOCK object, if any */</span></span>
+<span class="line"><span style="color:#6F42C1">    PROCLOCK</span><span style="color:#D73A49">*</span><span style="color:#24292E"> proclock;</span><span style="color:#6A737D">         /* associated PROCLOCK object, if any */</span></span>
+<span class="line"><span style="color:#6F42C1">    uint32</span><span style="color:#24292E"> hashcode;</span><span style="color:#6A737D">            /* copy of LOCKTAG's hash value */</span></span>
+<span class="line"><span style="color:#6F42C1">    int64</span><span style="color:#24292E"> nLocks;</span><span style="color:#6A737D">               /* total number of times lock is held */</span></span>
+<span class="line"><span style="color:#D73A49">    int</span><span style="color:#24292E"> numLockOwners;</span><span style="color:#6A737D">          /* # of relevant ResourceOwners */</span></span>
+<span class="line"><span style="color:#D73A49">    int</span><span style="color:#24292E"> maxLockOwners;</span><span style="color:#6A737D">          /* allocated size of array */</span></span>
+<span class="line"><span style="color:#D73A49">    bool</span><span style="color:#24292E"> holdsStrongLockCount;</span><span style="color:#6A737D">  /* bumped FastPathStrongRelatonLocks */</span></span>
+<span class="line"><span style="color:#D73A49">    bool</span><span style="color:#24292E"> ssLock;</span><span style="color:#6A737D">                /* distribute lock in shared storage mode */</span></span>
+<span class="line"><span style="color:#6F42C1">    LOCALLOCKOWNER</span><span style="color:#D73A49">*</span><span style="color:#24292E"> lockOwners;</span><span style="color:#6A737D"> /* dynamically resizable array */</span></span>
+<span class="line"><span style="color:#24292E">} </span><span style="color:#6F42C1">LOCALLOCK</span><span style="color:#24292E">;</span></span></code></pre>
+<h2 id="锁调用路径以relation_open为例">锁调用路径，以<code>relation_open</code>为例</h2>
+<p>LockRelationOid -&gt; LockAcquire -&gt; LockAcquireExtended -&gt; LockAcquireExtendedXC</p>
+<h3 id="查找创建locallock">查找/创建LOCALLOCK</h3>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="cpp"><code><span class="line"><span style="color:#6A737D">    /*</span></span>
+<span class="line"><span style="color:#6A737D">     * Find or create a LOCALLOCK entry for this lock and lockmode</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#24292E">    locallock </span><span style="color:#D73A49">=</span><span style="color:#24292E"> (LOCALLOCK </span><span style="color:#D73A49">*</span><span style="color:#24292E">)</span><span style="color:#6F42C1">hash_search</span><span style="color:#24292E">(t_thrd.storage_cxt.LockMethodLocalHash, (</span><span style="color:#D73A49">void</span><span style="color:#D73A49"> *</span><span style="color:#24292E">)</span><span style="color:#D73A49">&amp;</span><span style="color:#24292E">localtag, HASH_ENTER, </span><span style="color:#D73A49">&amp;</span><span style="color:#24292E">found);</span></span></code></pre>
+<h4 id="fast-path优化">Fast-path优化</h4>
+<p>观察到弱锁加锁频繁，且很少发生互斥。我们可以让弱锁走fast-path，避免访问共享内存的主锁表。</p>
+<h5 id="只有前三级弱锁才能走fast-path">只有前三级弱锁才能走Fast-path</h5>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="cpp"><code><span class="line"><span style="color:#6A737D">/*</span></span>
+<span class="line"><span style="color:#6A737D"> * The fast-path lock mechanism is concerned only with relation locks on</span></span>
+<span class="line"><span style="color:#6A737D"> * unshared relations by backends bound to a database.	The fast-path</span></span>
+<span class="line"><span style="color:#6A737D"> * mechanism exists mostly to accelerate acquisition and release of locks</span></span>
+<span class="line"><span style="color:#6A737D"> * that rarely conflict.  Because ShareUpdateExclusiveLock is</span></span>
+<span class="line"><span style="color:#6A737D"> * self-conflicting, it can't use the fast-path mechanism; but it also does</span></span>
+<span class="line"><span style="color:#6A737D"> * not conflict with any of the locks that do, so we can ignore it completely.</span></span>
+<span class="line"><span style="color:#6A737D"> */</span></span>
+<span class="line"><span style="color:#D73A49">#define</span><span style="color:#6F42C1"> EligibleForRelationFastPath</span><span style="color:#24292E">(</span><span style="color:#E36209">locktag</span><span style="color:#24292E">, </span><span style="color:#E36209">mode</span><span style="color:#24292E">)                                                    </span><span style="color:#005CC5">\</span></span>
+<span class="line"><span style="color:#24292E">    ((locktag)-&gt;locktag_lockmethodid </span><span style="color:#D73A49">==</span><span style="color:#24292E"> DEFAULT_LOCKMETHOD </span><span style="color:#D73A49">&amp;&amp;</span><span style="color:#005CC5">                                         \</span></span>
+<span class="line"><span style="color:#24292E">     ((locktag)-&gt;locktag_type </span><span style="color:#D73A49">==</span><span style="color:#24292E"> LOCKTAG_RELATION </span><span style="color:#D73A49">||</span><span style="color:#24292E"> (locktag)-&gt;locktag_type </span><span style="color:#D73A49">==</span><span style="color:#24292E"> LOCKTAG_PARTITION) </span><span style="color:#D73A49">&amp;&amp;</span><span style="color:#005CC5"> \</span></span>
+<span class="line"><span style="color:#24292E">     (mode) </span><span style="color:#D73A49">&lt;</span><span style="color:#24292E"> ShareUpdateExclusiveLock)</span></span>
+<span class="line"><span style="color:#D73A49">#define</span><span style="color:#6F42C1"> ConflictsWithRelationFastPath</span><span style="color:#24292E">(</span><span style="color:#E36209">locktag</span><span style="color:#24292E">, </span><span style="color:#E36209">mode</span><span style="color:#24292E">)                                                  </span><span style="color:#005CC5">\</span></span>
+<span class="line"><span style="color:#24292E">    ((locktag)-&gt;locktag_lockmethodid </span><span style="color:#D73A49">==</span><span style="color:#24292E"> DEFAULT_LOCKMETHOD </span><span style="color:#D73A49">&amp;&amp;</span><span style="color:#005CC5">                                         \</span></span>
+<span class="line"><span style="color:#24292E">     ((locktag)-&gt;locktag_type </span><span style="color:#D73A49">==</span><span style="color:#24292E"> LOCKTAG_RELATION </span><span style="color:#D73A49">||</span><span style="color:#24292E"> (locktag)-&gt;locktag_type </span><span style="color:#D73A49">==</span><span style="color:#24292E"> LOCKTAG_PARTITION) </span><span style="color:#D73A49">&amp;&amp;</span><span style="color:#005CC5"> \</span></span>
+<span class="line"><span style="color:#24292E">     (mode) </span><span style="color:#D73A49">&gt;</span><span style="color:#24292E"> ShareUpdateExclusiveLock)</span></span></code></pre>
+<h5 id="fast-path取锁成功失败判断">Fast-path取锁成功/失败判断</h5>
+<p><code>t_thrd.storage_cxt.FastPathStrongRelationLocks-&gt;count[fasthashcode] &gt; 0</code>，表示这个锁已经有强锁了，此时Fast-path取锁失败。</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="cpp"><code><span class="line"><span style="color:#D73A49">        if</span><span style="color:#24292E"> (t_thrd.storage_cxt.FastPathStrongRelationLocks-&gt;count[fasthashcode] </span><span style="color:#D73A49">!=</span><span style="color:#005CC5"> 0</span><span style="color:#24292E">)</span></span>
+<span class="line"><span style="color:#24292E">            acquired </span><span style="color:#D73A49">=</span><span style="color:#005CC5"> false</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#D73A49">        else</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#6F42C1">            FastPathTag</span><span style="color:#24292E"> tag </span><span style="color:#D73A49">=</span><span style="color:#24292E"> { locktag-&gt;locktag_field1, locktag-&gt;locktag_field2, locktag-&gt;locktag_field3 };</span></span>
+<span class="line"><span style="color:#24292E">            acquired </span><span style="color:#D73A49">=</span><span style="color:#6F42C1"> FastPathGrantRelationLock</span><span style="color:#24292E">(tag, lockmode);</span></span>
+<span class="line"><span style="color:#24292E">        }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1">        LWLockRelease</span><span style="color:#24292E">(t_thrd.proc-&gt;backendLock);</span></span>
+<span class="line"><span style="color:#D73A49">        if</span><span style="color:#24292E"> (acquired) {</span></span>
+<span class="line"><span style="color:#6A737D">            /*</span></span>
+<span class="line"><span style="color:#6A737D">             * The locallock might contain stale pointers to some old shared</span></span>
+<span class="line"><span style="color:#6A737D">             * objects; we MUST reset these to null before considering the</span></span>
+<span class="line"><span style="color:#6A737D">             * lock to be acquired via fast-path.</span></span>
+<span class="line"><span style="color:#6A737D">             */</span></span>
+<span class="line"><span style="color:#24292E">            locallock-&gt;lock </span><span style="color:#D73A49">=</span><span style="color:#005CC5"> NULL</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#24292E">            locallock-&gt;proclock </span><span style="color:#D73A49">=</span><span style="color:#005CC5"> NULL</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#6F42C1">            GrantLockLocal</span><span style="color:#24292E">(locallock, owner);</span></span>
+<span class="line"><span style="color:#6F42C1">            instr_stmt_report_lock</span><span style="color:#24292E">(LOCK_END, lockmode);</span></span>
+<span class="line"><span style="color:#D73A49">            return</span><span style="color:#24292E"> LOCKACQUIRE_OK;</span></span>
+<span class="line"><span style="color:#24292E">        }</span></span></code></pre>
+<p>其中<code>t_thrd.storage_cxt.FastPathStrongRelationLocks</code>定义如下，注意hash
+partitions只有1024，可能会有两个不同的锁被误判为同一个锁，而不必要地进入主锁表。</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="cpp"><code><span class="line"><span style="color:#6A737D">/*</span></span>
+<span class="line"><span style="color:#6A737D"> * To make the fast-path lock mechanism work, we must have some way of</span></span>
+<span class="line"><span style="color:#6A737D"> * preventing the use of the fast-path when a conflicting lock might be</span></span>
+<span class="line"><span style="color:#6A737D"> * present.  We partition* the locktag space into FAST_PATH_HASH_BUCKETS</span></span>
+<span class="line"><span style="color:#6A737D"> * partitions, and maintain an integer count of the number of "strong" lockers</span></span>
+<span class="line"><span style="color:#6A737D"> * in each partition.  When any "strong" lockers are present (which is</span></span>
+<span class="line"><span style="color:#6A737D"> * hopefully not very often), the fast-path mechanism can't be used, and we</span></span>
+<span class="line"><span style="color:#6A737D"> * must fall back to the slower method of pushing matching locks directly</span></span>
+<span class="line"><span style="color:#6A737D"> * into the main lock tables.</span></span>
+<span class="line"><span style="color:#6A737D"> *</span></span>
+<span class="line"><span style="color:#6A737D"> * The deadlock detector does not know anything about the fast path mechanism,</span></span>
+<span class="line"><span style="color:#6A737D"> * so any locks that might be involved in a deadlock must be transferred from</span></span>
+<span class="line"><span style="color:#6A737D"> * the fast-path queues to the main lock table.</span></span>
+<span class="line"><span style="color:#6A737D"> */</span></span>
+<span class="line"><span style="color:#D73A49">#define</span><span style="color:#6F42C1"> FAST_PATH_STRONG_LOCK_HASH_BITS</span><span style="color:#005CC5"> 10</span></span>
+<span class="line"><span style="color:#D73A49">#define</span><span style="color:#6F42C1"> FAST_PATH_STRONG_LOCK_HASH_PARTITIONS</span><span style="color:#24292E"> (1 &lt;&lt; FAST_PATH_STRONG_LOCK_HASH_BITS)</span></span>
+<span class="line"><span style="color:#D73A49">#define</span><span style="color:#6F42C1"> FastPathStrongLockHashPartition</span><span style="color:#24292E">(</span><span style="color:#E36209">hashcode</span><span style="color:#24292E">) ((hashcode) </span><span style="color:#D73A49">%</span><span style="color:#24292E"> FAST_PATH_STRONG_LOCK_HASH_PARTITIONS)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">typedef</span><span style="color:#D73A49"> struct</span><span style="color:#6F42C1"> FastPathStrongRelationLockData</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#005CC5">    slock_t</span><span style="color:#24292E"> mutex;</span></span>
+<span class="line"><span style="color:#6F42C1">    uint32</span><span style="color:#24292E"> count[FAST_PATH_STRONG_LOCK_HASH_PARTITIONS];</span></span>
+<span class="line"><span style="color:#24292E">} </span><span style="color:#6F42C1">FastPathStrongRelationLockData</span><span style="color:#24292E">;</span></span></code></pre>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="cpp"><code><span class="line"><span style="color:#6A737D">/*</span></span>
+<span class="line"><span style="color:#6A737D"> * We allow a small number of "weak" relation locks (AccesShareLock,</span></span>
+<span class="line"><span style="color:#6A737D"> * RowShareLock, RowExclusiveLock) to be recorded in the PGPROC structure</span></span>
+<span class="line"><span style="color:#6A737D"> * rather than the main lock table.  This eases contention on the lock</span></span>
+<span class="line"><span style="color:#6A737D"> * manager LWLocks.  See storage/lmgr/README for additional details.</span></span>
+<span class="line"><span style="color:#6A737D"> */</span></span>
+<span class="line"><span style="color:#D73A49">#define</span><span style="color:#6F42C1"> FP_LOCK_SLOTS_PER_BACKEND</span><span style="color:#24292E"> ((uint32)g_instance.attr.attr_storage.num_internal_lock_partitions[FASTPATH_PART])</span></span>
+<span class="line"><span style="color:#D73A49">#define</span><span style="color:#6F42C1"> FP_LOCK_SLOTS_PER_LOCKBIT</span><span style="color:#005CC5"> 20</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">...</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E">...</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">#define</span><span style="color:#6F42C1"> FAST_PATH_GET_BITS</span><span style="color:#24292E">(</span><span style="color:#E36209">proc</span><span style="color:#24292E">, </span><span style="color:#E36209">n</span><span style="color:#24292E">) (((proc)-&gt;fpLockBits[n </span><span style="color:#D73A49">/</span><span style="color:#24292E"> FP_LOCK_SLOTS_PER_LOCKBIT] </span><span style="color:#005CC5">\</span></span>
+<span class="line"><span style="color:#D73A49">    &gt;&gt;</span><span style="color:#24292E"> (FAST_PATH_BITS_PER_SLOT </span><span style="color:#D73A49">*</span><span style="color:#24292E"> (n </span><span style="color:#D73A49">%</span><span style="color:#24292E"> FP_LOCK_SLOTS_PER_LOCKBIT))) </span><span style="color:#D73A49">&amp;</span><span style="color:#24292E"> FAST_PATH_MASK)</span></span></code></pre>
+<h4 id="分支一fastpath取锁成功弱锁">分支一：fastpath取锁成功（弱锁）</h4>
+<h5 id="fastpathgrantrelationlock在当前后端自己的-pgproc-fast-path-数组中为一个关系或分区登记一种弱锁模式"><code>FastPathGrantRelationLock()</code>：在当前后端自己的 PGPROC fast-path 数组中，为一个关系或分区登记一种弱锁模式</h5>
+<p>每个后端的 PGPROC 中有两组 fast-path 数据：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="cpp"><code><span class="line"><span style="color:#D73A49">struct</span><span style="color:#6F42C1"> PGPROC</span><span style="color:#24292E"> {</span></span>
+<span class="line"><span style="color:#24292E">...</span></span>
+<span class="line"><span style="color:#6A737D">    /* Per-backend LWLock.	Protects fields below. */</span></span>
+<span class="line"><span style="color:#6F42C1">    LWLock</span><span style="color:#D73A49">*</span><span style="color:#24292E"> backendLock;</span><span style="color:#6A737D"> /* protects the fields below */</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /* Lock manager data, recording fast-path locks taken by this backend. */</span></span>
+<span class="line"><span style="color:#6F42C1">    uint64</span><span style="color:#D73A49"> *</span><span style="color:#24292E">fpLockBits;</span><span style="color:#6A737D">                             /* lock modes held for each fast-path slot */</span></span>
+<span class="line"><span style="color:#6F42C1">    FastPathTag</span><span style="color:#D73A49"> *</span><span style="color:#24292E">fpRelId;</span><span style="color:#6A737D">                           /* slots for rel oids */</span></span>
+<span class="line"><span style="color:#24292E">...</span></span>
+<span class="line"><span style="color:#24292E">};</span></span></code></pre>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="cpp"><code><span class="line"><span style="color:#D73A49">  typedef</span><span style="color:#D73A49"> struct</span><span style="color:#24292E"> FastPathTag {</span></span>
+<span class="line"><span style="color:#6F42C1">      uint32</span><span style="color:#24292E"> dbid;</span></span>
+<span class="line"><span style="color:#6F42C1">      uint32</span><span style="color:#24292E"> relid;</span></span>
+<span class="line"><span style="color:#6F42C1">      uint32</span><span style="color:#24292E"> partitionid;</span></span>
+<span class="line"><span style="color:#24292E">  } FastPathTag;</span></span></code></pre>
+<p>逻辑上可以把它们看成一张当前backend私有的小表：</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: right">槽位</th>
+<th><code>fpRelId[slot]</code></th>
+<th><code>fpLockBits[slot]</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right">0</td>
+<td><code>{dbid, relid, partitionid}</code></td>
+<td>三种弱锁的 <code>bit</code></td>
+</tr>
+<tr>
+<td style="text-align: right">1</td>
+<td><code>{dbid, relid, partitionid}</code></td>
+<td>三种弱锁的 <code>bit</code></td>
+</tr>
+<tr>
+<td style="text-align: right">…</td>
+<td>…</td>
+<td>…</td>
+</tr>
+</tbody>
+</table>
+<p>每个槽位使用 3 个 bit 表示三种允许进入 fast-path 的锁模式：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="plaintext"><code><span class="line"><span>bit 0 → AccessShareLock       = 1</span></span>
+<span class="line"><span>bit 1 → RowShareLock          = 2</span></span>
+<span class="line"><span>bit 2 → RowExclusiveLock      = 3</span></span></code></pre>
+<p>所以一个关系可以在同一个槽位中同时记录多个弱锁模式，例如：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="plaintext"><code><span class="line"><span>fpRelId[3] = {dbid, relid, 0}</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>fpLockBits 对应 slot 3：</span></span>
+<span class="line"><span>  AccessShareLock bit  = 1</span></span>
+<span class="line"><span>  RowShareLock bit     = 0</span></span>
+<span class="line"><span>  RowExclusiveLock bit = 1</span></span></code></pre>
+<p>这表示当前后端在同一个关系上同时持有：AccessShareLock和RowExclusiveLock。</p>
+<p><code>FastPathGrantRelationLock()</code>的返回值：</p>
+<ul>
+<li>true：已经成功写入当前后端的 fast-path 槽位</li>
+<li>false：fast-path 槽位无法容纳，请调用者退回主锁表</li>
+</ul>
+<h5 id="设置local-hash锁表上的locallock记录owner">设置local hash锁表上的LOCALLOCK，记录Owner</h5>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="cpp"><code><span class="line"><span style="color:#6A737D">/*</span></span>
+<span class="line"><span style="color:#6A737D"> * GrantLockLocal -- update the locallock data structures to show</span></span>
+<span class="line"><span style="color:#6A737D"> *		the lock request has been granted.</span></span>
+<span class="line"><span style="color:#6A737D"> *</span></span>
+<span class="line"><span style="color:#6A737D"> * We expect that LockAcquire made sure there is room to add a new</span></span>
+<span class="line"><span style="color:#6A737D"> * ResourceOwner entry.</span></span>
+<span class="line"><span style="color:#6A737D"> */</span></span>
+<span class="line"><span style="color:#D73A49">static</span><span style="color:#D73A49"> void</span><span style="color:#6F42C1"> GrantLockLocal</span><span style="color:#24292E">(</span><span style="color:#6F42C1">LOCALLOCK</span><span style="color:#D73A49"> *</span><span style="color:#E36209">locallock</span><span style="color:#24292E">, </span><span style="color:#6F42C1">ResourceOwner</span><span style="color:#E36209"> owner</span><span style="color:#24292E">)</span></span>
+<span class="line"><span style="color:#24292E">{</span></span>
+<span class="line"><span style="color:#6F42C1">    LOCALLOCKOWNER</span><span style="color:#D73A49"> *</span><span style="color:#24292E">lockOwners </span><span style="color:#D73A49">=</span><span style="color:#24292E"> locallock-&gt;lockOwners;</span></span>
+<span class="line"><span style="color:#D73A49">    int</span><span style="color:#24292E"> i;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1">    Assert</span><span style="color:#24292E">(locallock-&gt;numLockOwners </span><span style="color:#D73A49">&lt;</span><span style="color:#24292E"> locallock-&gt;maxLockOwners);</span></span>
+<span class="line"><span style="color:#6A737D">    /* Count the total */</span></span>
+<span class="line"><span style="color:#24292E">    locallock-&gt;nLocks</span><span style="color:#D73A49">++</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#6A737D">    /* Count the per-owner lock */</span></span>
+<span class="line"><span style="color:#D73A49">    for</span><span style="color:#24292E"> (i </span><span style="color:#D73A49">=</span><span style="color:#005CC5"> 0</span><span style="color:#24292E">; i </span><span style="color:#D73A49">&lt;</span><span style="color:#24292E"> locallock-&gt;numLockOwners; i</span><span style="color:#D73A49">++</span><span style="color:#24292E">) {</span></span>
+<span class="line"><span style="color:#D73A49">        if</span><span style="color:#24292E"> (lockOwners[i].owner </span><span style="color:#D73A49">==</span><span style="color:#24292E"> owner) {</span></span>
+<span class="line"><span style="color:#24292E">            lockOwners[i].nLocks</span><span style="color:#D73A49">++</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#D73A49">            return</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#24292E">        }</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span>
+<span class="line"><span style="color:#24292E">    lockOwners[i].owner </span><span style="color:#D73A49">=</span><span style="color:#24292E"> owner;</span></span>
+<span class="line"><span style="color:#24292E">    lockOwners[i].nLocks </span><span style="color:#D73A49">=</span><span style="color:#005CC5"> 1</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#24292E">    locallock-&gt;numLockOwners</span><span style="color:#D73A49">++</span><span style="color:#24292E">;</span></span>
+<span class="line"><span style="color:#24292E">}</span></span></code></pre>
+<h4 id="分支二强锁">分支二：强锁</h4>
+<p><code>ConflictsWithRelationFastPath()</code> 为真。它在进入主锁表前必须先阻止并物化可能冲突的 fast-path 弱锁：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="cpp"><code><span class="line"><span style="color:#6A737D">    /*</span></span>
+<span class="line"><span style="color:#6A737D">     * If this lock could potentially have been taken via the fast-path by</span></span>
+<span class="line"><span style="color:#6A737D">     * some other backend, we must (temporarily) disable further use of the</span></span>
+<span class="line"><span style="color:#6A737D">     * fast-path for this lock tag, and migrate any locks already taken via</span></span>
+<span class="line"><span style="color:#6A737D">     * this method to the main lock table.</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#D73A49">    if</span><span style="color:#24292E"> (</span><span style="color:#6F42C1">ConflictsWithRelationFastPath</span><span style="color:#24292E">(locktag, lockmode)) {</span></span>
+<span class="line"><span style="color:#6F42C1">        uint32</span><span style="color:#24292E"> fasthashcode </span><span style="color:#D73A49">=</span><span style="color:#6F42C1"> FastPathStrongLockHashPartition</span><span style="color:#24292E">(hashcode);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1">        BeginStrongLockAcquire</span><span style="color:#24292E">(locallock, fasthashcode);</span></span>
+<span class="line"><span style="color:#D73A49">        if</span><span style="color:#24292E"> (</span><span style="color:#D73A49">!</span><span style="color:#6F42C1">FastPathTransferRelationLocks</span><span style="color:#24292E">(lockMethodTable, locktag, hashcode)) {</span></span>
+<span class="line"><span style="color:#6F42C1">            AbortStrongLockAcquire</span><span style="color:#24292E">();</span></span>
+<span class="line"><span style="color:#6F42C1">            SSDmsLockRelease</span><span style="color:#24292E">(locallock);</span></span>
+<span class="line"><span style="color:#6F42C1">            instr_stmt_report_lock</span><span style="color:#24292E">(LOCK_END, NoLock);</span></span>
+<span class="line"><span style="color:#D73A49">            if</span><span style="color:#24292E"> (reportMemoryError)</span></span>
+<span class="line"><span style="color:#6F42C1">                ereport</span><span style="color:#24292E">(ERROR, (</span><span style="color:#6F42C1">errcode</span><span style="color:#24292E">(ERRCODE_OUT_OF_MEMORY), </span><span style="color:#6F42C1">errmsg</span><span style="color:#24292E">(</span><span style="color:#032F62">"out of shared memory"</span><span style="color:#24292E">),</span></span>
+<span class="line"><span style="color:#6F42C1">                    errhint</span><span style="color:#24292E">(</span><span style="color:#032F62">"You might need to increase max_locks_per_transaction."</span><span style="color:#24292E">)));</span></span>
+<span class="line"><span style="color:#D73A49">            else</span></span>
+<span class="line"><span style="color:#D73A49">                return</span><span style="color:#24292E"> LOCKACQUIRE_NOT_AVAIL;</span></span>
+<span class="line"><span style="color:#24292E">        }</span></span>
+<span class="line"><span style="color:#24292E">    }</span></span></code></pre>
+<p><code>t_thrd.storage_cxt.FastPathStrongRelationLocks-&gt;count[fasthashcode]++;</code></p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="cpp"><code><span class="line"><span style="color:#6A737D">/*</span></span>
+<span class="line"><span style="color:#6A737D"> * BeginStrongLockAcquire - inhibit use of fastpath for a given LOCALLOCK,</span></span>
+<span class="line"><span style="color:#6A737D"> * and arrange for error cleanup if it fails</span></span>
+<span class="line"><span style="color:#6A737D"> */</span></span>
+<span class="line"><span style="color:#D73A49">static</span><span style="color:#D73A49"> void</span><span style="color:#6F42C1"> BeginStrongLockAcquire</span><span style="color:#24292E">(</span><span style="color:#6F42C1">LOCALLOCK</span><span style="color:#D73A49"> *</span><span style="color:#E36209">locallock</span><span style="color:#24292E">, </span><span style="color:#6F42C1">uint32</span><span style="color:#E36209"> fasthashcode</span><span style="color:#24292E">)</span></span>
+<span class="line"><span style="color:#24292E">{</span></span>
+<span class="line"><span style="color:#6F42C1">    Assert</span><span style="color:#24292E">(t_thrd.storage_cxt.StrongLockInProgress </span><span style="color:#D73A49">==</span><span style="color:#005CC5"> NULL</span><span style="color:#24292E">);</span></span>
+<span class="line"><span style="color:#6F42C1">    Assert</span><span style="color:#24292E">(locallock-&gt;holdsStrongLockCount </span><span style="color:#D73A49">==</span><span style="color:#24292E"> FALSE);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">     *</span><span style="color:#24292E"> ensure we don</span><span style="color:#032F62">'t collide with someone else trying to bump the count at</span></span>
+<span class="line"><span style="color:#032F62">     * the same time.</span></span>
+<span class="line"><span style="color:#032F62">     *</span></span>
+<span class="line"><span style="color:#032F62">     * XXX: It might be worth considering using an atomic fetch-and-add</span></span>
+<span class="line"><span style="color:#032F62">     * instruction here, on architectures where that is supported.</span></span>
+<span class="line"><span style="color:#032F62">     */</span></span>
+<span class="line"><span style="color:#032F62">    SpinLockAcquire(&amp;t_thrd.storage_cxt.FastPathStrongRelationLocks-&gt;mutex);</span></span>
+<span class="line"><span style="color:#032F62">    t_thrd.storage_cxt.FastPathStrongRelationLocks-&gt;count[fasthashcode]++;</span></span>
+<span class="line"><span style="color:#032F62">    locallock-&gt;holdsStrongLockCount = TRUE;</span></span>
+<span class="line"><span style="color:#032F62">    t_thrd.storage_cxt.StrongLockInProgress = locallock;</span></span>
+<span class="line"><span style="color:#032F62">    SpinLockRelease(&amp;t_thrd.storage_cxt.FastPathStrongRelationLocks-&gt;mutex);</span></span>
+<span class="line"><span style="color:#032F62">}</span></span></code></pre>
+<p>FastPathTransferRelationLocks()将所有弱锁迁移到全局锁表。</p>
+<h4 id="分支三shareupdateexclusivelock">分支三：ShareUpdateExclusiveLock</h4>
+<p><code>ShareUpdateExclusiveLock == 4</code>。它既不满足 <code>mode &lt; ShareUpdateExclusiveLock</code>，也不满足 <code>mode &gt; ShareUpdateExclusiveLock</code>，因此：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="plaintext"><code><span class="line"><span>EligibleForRelationFastPath()  == false</span></span>
+<span class="line"><span>ConflictsWithRelationFastPath() == false</span></span></code></pre>
+<p>请求直接进入主锁表，但不调用 <code>BeginStrongLockAcquire()</code>，也不扫描所有后端迁移 fast-path 锁。原因是该模式虽与自身冲突，却不与 <code>AccessShareLock</code>、<code>RowShareLock</code>、<code>RowExclusiveLock</code> 三种 fast-path 模式冲突。</p>
+<h4 id="获取锁表分区锁">获取锁表分区锁</h4>
+<p>“锁表分区”是锁管理器对共享 LOCK hash、PROCLOCK hash 做的并发控制划分。（PG8.2引入的性能优化点）</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="cpp"><code><span class="line"><span style="color:#6A737D">    /*</span></span>
+<span class="line"><span style="color:#6A737D">     * We didn't find the lock in our LOCALLOCK table, and we didn't manage to</span></span>
+<span class="line"><span style="color:#6A737D">     * take it via the fast-path, either, so we've got to mess with the shared</span></span>
+<span class="line"><span style="color:#6A737D">     * lock table.</span></span>
+<span class="line"><span style="color:#6A737D">     */</span></span>
+<span class="line"><span style="color:#24292E">    partitionLock </span><span style="color:#D73A49">=</span><span style="color:#6F42C1"> LockHashPartitionLock</span><span style="color:#24292E">(hashcode);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1">    LWLockAcquire</span><span style="color:#24292E">(partitionLock, LW_EXCLUSIVE);</span></span></code></pre>
+<blockquote>
+<p>Before PostgreSQL 8.2, all of the shared-memory data structures used by
+the lock manager were protected by a single LWLock, the LockMgrLock;
+any operation involving these data structures had to exclusively lock
+LockMgrLock.  Not too surprisingly, this became a contention bottleneck.
+To reduce contention, the lock manager’s data structures have been split
+into multiple “partitions”, each protected by an independent LWLock.</p>
+</blockquote>
+<h2 id="锁等待队列">锁等待队列</h2>
+<p>openGauss 的 heavyweight lock 等待队列是“每个 LOCK 对象一条队列”，不是一条全局等待队列。</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="plaintext"><code><span class="line"><span>LOCK</span></span>
+<span class="line"><span>   ├─ waitProcs                ← 当前锁对象的等待队列</span></span>
+<span class="line"><span>   │    ├─ PGPROC A</span></span>
+<span class="line"><span>   │    ├─ PGPROC B</span></span>
+<span class="line"><span>   │    └─ PGPROC C</span></span>
+<span class="line"><span>   │</span></span>
+<span class="line"><span>   ├─ waitMask                 ← 等待队列中出现过哪些锁模式</span></span>
+<span class="line"><span>   └─ procLocks</span></span>
+<span class="line"><span>        ├─ PROCLOCK(LOCK, PGPROC A)</span></span>
+<span class="line"><span>        ├─ PROCLOCK(LOCK, PGPROC B)</span></span>
+<span class="line"><span>        └─ PROCLOCK(LOCK, PGPROC C)</span></span></code></pre>
+<h2 id="死锁检测算法">死锁检测算法</h2>
+<p>OpenGauss 的 heavyweight lock 死锁检测，核心是构造并搜索“等待图（waits-for graph，WFG）”。</p>
+<p>src/gausskernel/storage/lmgr/deadlock.cpp</p>
+<h3 id="延迟检测">延迟检测</h3>
+<p>openGauss 不会在每次锁等待时立即执行完整死锁检测。请求发生冲突后先：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="plaintext"><code><span class="line"><span>  WaitOnLock()</span></span>
+<span class="line"><span>    → ProcSleep()</span></span>
+<span class="line"><span>         → 插入 LOCK.waitProcs</span></span>
+<span class="line"><span>         → 设置 PGPROC.waitLock / waitLockMode</span></span>
+<span class="line"><span>         → 释放锁表分区 LWLock</span></span>
+<span class="line"><span>         → 等待信号量</span></span></code></pre>
+<p>通常等待超过 deadlock_timeout 后才触发：</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="plaintext"><code><span class="line"><span>CheckDeadLock()</span></span>
+<span class="line"><span>→ DeadLockCheck(t_thrd.proc)</span></span></code></pre>
+<section data-footnotes class="footnotes"><h2 class="sr-only" id="footnote-label">Footnotes</h2>
+<ol>
+<li id="user-content-fn-install">
+<p>容器镜像安装 <a href="https://docs.opengauss.org/zh/docs/latest/installation_guide/installing_the_container_image.html">https://docs.opengauss.org/zh/docs/latest/installation_guide/installing_the_container_image.html</a> <a href="#user-content-fnref-install" data-footnote-backref="" aria-label="Back to reference 1" class="data-footnote-backref">↩</a></p>
+</li>
+<li id="user-content-fn-1">
+<p><a href="https://support.huawei.com/enterprise/zh/doc/EDOC1100521883/49d463fb?idPath=22658044%7C7919788%7C9856606%7C253384033%7C265624857">https://support.huawei.com/enterprise/zh/doc/EDOC1100521883/49d463fb?idPath=22658044|7919788|9856606|253384033|265624857</a> <a href="#user-content-fnref-1" data-footnote-backref="" aria-label="Back to reference 2" class="data-footnote-backref">↩</a></p>
+</li>
+</ol>
+</section>
+</div></article></main></div><script type="module" src="/assets/BlogPost.astro_astro_type_script_index_0_lang.DWZnnEoa.js"></script><!--
+	展开与收起的按钮是一个箭头图标，位于代码块右上角。
+	收起时展示10行代码，代码块最后带有虚化渐变特效。
+	如果代码块行数小于10行，则没有展开与收起按钮。
+	默认展开。
+--><script type="module">document.querySelectorAll(`.article-content pre`).forEach((e,t)=>{if(e.closest(`.code-block-shell`))return;let n=(e.querySelector(`code`)?.textContent??e.textContent??``).replace(/\n$/,``),r=n.length===0?0:n.split(`
+`).length;if(r<10)return;let i=document.createElement(`div`),a=document.createElement(`button`),o=e.id||`long-code-block-${t+1}`;e.id=o,e.dataset.codeLineCount=String(r),i.className=`code-block-shell`,a.className=`code-block-toggle`,a.type=`button`,a.setAttribute(`aria-controls`,o),a.innerHTML=`<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m4 6 4 4 4-4"/></svg>`;let s=e=>{i.classList.toggle(`code-block-shell--expanded`,e),a.setAttribute(`aria-expanded`,String(e)),a.setAttribute(`aria-label`,e?`收起代码（${r} 行）`:`展开代码（${r} 行）`),a.title=e?`收起代码`:`展开代码`};e.before(i),i.append(e,a),s(!0),a.addEventListener(`click`,()=>{let e=a.getAttribute(`aria-expanded`)===`true`;s(!e)})});</script><dialog class="image-viewer" aria-label="原图查看器" data-astro-cid-zdmlxq35><div class="image-viewer-panel" data-astro-cid-zdmlxq35><button class="image-viewer-close" type="button" aria-label="关闭原图" data-astro-cid-zdmlxq35><span aria-hidden="true" data-astro-cid-zdmlxq35>×</span></button><div class="image-viewer-scroll" data-astro-cid-zdmlxq35><div class="image-viewer-stage" data-astro-cid-zdmlxq35><img class="image-viewer-image" alt="" data-astro-cid-zdmlxq35></div></div></div></dialog><script type="module">var e=document.querySelector(`.image-viewer`),t=e?.querySelector(`.image-viewer-image`),n=e?.querySelector(`.image-viewer-close`),r,i=e=>{let t=Number(e.getAttribute(`width`))||e.naturalWidth,n=Number(e.getAttribute(`height`))||e.naturalHeight,r=e.parentElement;t/n>=2.4&&r?.matches(`figure.image-figure`)&&r.classList.add(`wide-image`)},a=n=>{!e||!t||(r=n,t.src=n.currentSrc||n.src,t.alt=n.alt,e.showModal(),document.documentElement.classList.add(`image-viewer-open`))};document.querySelectorAll(`.article-content img`).forEach(e=>{i(e),e.complete||e.addEventListener(`load`,()=>i(e),{once:!0}),e.tabIndex=0,e.role=`button`,e.setAttribute(`aria-label`,e.alt?`查看原图：${e.alt}`:`查看原图`),e.addEventListener(`click`,()=>a(e)),e.addEventListener(`keydown`,t=>{(t.key===`Enter`||t.key===` `)&&(t.preventDefault(),a(e))})}),n?.addEventListener(`click`,()=>e?.close()),e?.addEventListener(`click`,t=>{t.target===e&&e.close()}),e?.addEventListener(`close`,()=>{document.documentElement.classList.remove(`image-viewer-open`),t?.removeAttribute(`src`),r?.focus(),r=void 0});</script><script type="module">document.querySelectorAll(`[data-keyword-filter]`).forEach(e=>{if(e.dataset.keywordFilterMounted===`true`)return;e.dataset.keywordFilterMounted=`true`;let t=Array.from(e.querySelectorAll(`[data-keyword]`)),n=Array.from(e.querySelectorAll(`[data-keyword-path]`)).map(e=>({element:e,keywords:new Set(JSON.parse(e.dataset.keywordPath??`[]`))})),r=Array.from(e.querySelectorAll(`.keyword-sentence-filter__sentences li`)).reverse(),i=e.querySelector(`[data-keyword-filter-status]`),a=e.querySelector(`[data-keyword-filter-clear]`),o=e.querySelector(`[data-keyword-filter-empty]`),s=new Set,c=()=>{let e=0;for(let t of n){let n=[...s].every(e=>t.keywords.has(e));t.element.hidden=!n,n&&(e+=1)}for(let e of r){if(e.dataset.keywordPath)continue;let t=Array.from(e.children).filter(e=>e.matches(`ul, ol`)).flatMap(e=>Array.from(e.children)).filter(e=>e instanceof HTMLElement);e.hidden=t.length>0&&t.every(e=>e.hidden)}for(let e of t)e.setAttribute(`aria-pressed`,String(s.has(e.dataset.keyword??``)));i&&(i.textContent=s.size===0?`共 ${n.length} 条路径`:`显示 ${e} / ${n.length} 条路径`),a&&(a.hidden=s.size===0),o&&(o.hidden=e!==0)};for(let e of t)e.addEventListener(`click`,()=>{let t=e.dataset.keyword;t&&(s.has(t)?s.delete(t):s.add(t),c())});a?.addEventListener(`click`,()=>{s.clear(),c()})});</script><script type="module">var e=document.querySelector(`.reading-navigation`);if(e){let t=Array.from(e.querySelectorAll(`details`));for(let e of t)e.addEventListener(`toggle`,()=>{if(e.open)for(let n of t)n!==e&&(n.open=!1)}),e.addEventListener(`click`,t=>{t.target.closest(`a`)&&(e.open=!1)});document.addEventListener(`click`,n=>{if(!e.contains(n.target))for(let e of t)e.open=!1})}</script></body></html>

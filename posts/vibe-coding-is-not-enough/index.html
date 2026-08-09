@@ -1,0 +1,108 @@
+<!DOCTYPE html><html lang="zh-CN" data-astro-cid-tldeq5d5><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="generator" content="Astro v7.2.0"><title>Vibe Coding Is Not Enough | Yinzuo Jiang</title><link rel="stylesheet" href="/assets/BlogPost.DMfLLSA3.css"><style>:root{--color-canvas:#f3ebdd;--color-ink:#2f2a26;--color-muted:#81786f;--color-line:#dfd7cd;--color-accent:#b66b50;--color-nav:#625d58;--color-link-underline:#c79b83;--color-link-hover:#713b2b;--font-serif:"Iowan Old Style", "Palatino Linotype", "Source Han Serif SC VF", "Noto Serif CJK SC", Georgia, serif;--font-sans:"Source Han Sans CN", "Noto Sans CJK SC", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;--font-mono:"SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;--mobile-nav-height:48px}*{box-sizing:border-box}html,body{background-color:var(--color-canvas);color:var(--color-ink)}html{scrollbar-gutter:stable}a{color:inherit;text-decoration-color:var(--color-link-underline);text-decoration-skip-ink:auto;text-underline-offset:.2em;text-decoration-line:underline;text-decoration-thickness:1px;transition:color .12s,text-decoration-color .12s}a:hover{color:var(--color-link-hover);text-decoration-color:currentColor}a:focus-visible{outline:2px solid var(--color-accent);outline-offset:3px;border-radius:1px}.private-lock{color:var(--color-muted);margin-left:.35em}.private-lock svg{vertical-align:-.1em;width:.75em;height:.75em;display:inline-block}.site-nav[data-astro-cid-rutobish]{z-index:10;background:var(--color-canvas);font-family:var(--font-mono);letter-spacing:0;align-items:center;padding:3px 0 3px 10px;font-size:15px;font-weight:700;line-height:1.4;display:flex;position:fixed;top:22px;right:clamp(16px,2vw,24px)}.site-nav[data-astro-cid-rutobish] a[data-astro-cid-rutobish]{color:var(--color-nav);text-decoration:none}.site-nav[data-astro-cid-rutobish] a[data-astro-cid-rutobish]+a[data-astro-cid-rutobish]{margin-left:16px}.site-nav[data-astro-cid-rutobish] a[data-astro-cid-rutobish]:hover{color:var(--color-accent)}.site-nav[data-astro-cid-rutobish] a[data-astro-cid-rutobish]:focus-visible{outline:2px solid var(--color-accent);outline-offset:3px}@media (width<=680px){.site-nav[data-astro-cid-rutobish]{z-index:30;width:auto;max-width:100%;min-height:calc(var(--mobile-nav-height) + env(safe-area-inset-top));padding:env(safe-area-inset-top) max(1rem, env(safe-area-inset-right)) 0 .75rem;justify-content:flex-end;top:0;left:auto;right:0}}@media print{.site-nav[data-astro-cid-rutobish]{display:none}}
+</style></head><body data-astro-cid-tldeq5d5><div class="page-shell" data-astro-cid-tldeq5d5><div class="nav-spacer" data-astro-cid-tldeq5d5><nav class="site-nav" aria-label="主导航" data-pagefind-ignore="all" data-astro-cid-rutobish><a href="/" data-astro-cid-rutobish>Home</a><a href="/posts/" aria-current="page" data-astro-cid-rutobish>Blog</a></nav></div><div class="reading-navigation" data-astro-cid-tldeq5d5><!--
+	目录保留独立滚动和最大高度，但隐藏浏览器默认滚动条，并用轻微的上下渐隐提示可滚动内容，避免滚动轨道造成视觉冲突。
+--><aside class="table-of-contents" aria-labelledby="toc-title" data-astro-cid-p33bl5ka><p id="toc-title" data-astro-cid-p33bl5ka>目录</p><nav class="toc-scroll-region" aria-label="文章目录" data-astro-cid-p33bl5ka><ol data-astro-cid-p33bl5ka><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#复杂动态长上下文管理" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>1</span>复杂动态长上下文管理</a><ol class="toc-subsections" data-astro-cid-p33bl5ka><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#需求管理" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>1.1</span>需求管理</a></li><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#决策难点" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>1.2</span>决策难点</a></li></ol></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#可信软件工程" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>2</span>可信软件工程</a><ol class="toc-subsections" data-astro-cid-p33bl5ka><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#上下文缺失" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>2.1</span>上下文缺失</a></li><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#用户信任" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>2.2</span>用户信任</a></li><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#软件工程过程审计" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>2.3</span>软件工程过程审计</a></li><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#agent自动生成的测试套件不全面偏离真实需求" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>2.4</span>Agent自动生成的测试套件不全面、偏离真实需求</a></li><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#架构不可维护" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>2.5</span>架构不可维护</a></li><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#可观测性" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>2.6</span>可观测性</a></li></ol></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#自然语言编程" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>3</span>自然语言编程</a><ol class="toc-subsections" data-astro-cid-p33bl5ka><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#语言不重要算法思想更重要" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>3.1</span>语言不重要，算法思想更重要</a></li><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#懂得专业名词才能与agent更加高效地交流" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>3.2</span>懂得专业名词才能与Agent更加高效地交流</a></li></ol></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#检查每一行agent生成的代码-vs-一行agent生成的代码都不看" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>4</span>检查每一行Agent生成的代码 vs. 一行Agent生成的代码都不看</a></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#footnote-label" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>5</span>Footnotes</a></li></ol></nav></aside><details class="toc-drawer" data-pagefind-ignore="all" data-astro-cid-p33bl5ka><summary data-astro-cid-p33bl5ka>本页目录</summary><nav class="toc-scroll-region" aria-label="文章目录" data-astro-cid-p33bl5ka><ol data-astro-cid-p33bl5ka><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#复杂动态长上下文管理" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>1</span>复杂动态长上下文管理</a><ol class="toc-subsections" data-astro-cid-p33bl5ka><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#需求管理" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>1.1</span>需求管理</a></li><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#决策难点" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>1.2</span>决策难点</a></li></ol></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#可信软件工程" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>2</span>可信软件工程</a><ol class="toc-subsections" data-astro-cid-p33bl5ka><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#上下文缺失" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>2.1</span>上下文缺失</a></li><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#用户信任" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>2.2</span>用户信任</a></li><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#软件工程过程审计" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>2.3</span>软件工程过程审计</a></li><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#agent自动生成的测试套件不全面偏离真实需求" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>2.4</span>Agent自动生成的测试套件不全面、偏离真实需求</a></li><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#架构不可维护" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>2.5</span>架构不可维护</a></li><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#可观测性" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>2.6</span>可观测性</a></li></ol></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#自然语言编程" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>3</span>自然语言编程</a><ol class="toc-subsections" data-astro-cid-p33bl5ka><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#语言不重要算法思想更重要" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>3.1</span>语言不重要，算法思想更重要</a></li><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#懂得专业名词才能与agent更加高效地交流" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>3.2</span>懂得专业名词才能与Agent更加高效地交流</a></li></ol></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#检查每一行agent生成的代码-vs-一行agent生成的代码都不看" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>4</span>检查每一行Agent生成的代码 vs. 一行Agent生成的代码都不看</a></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#footnote-label" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>5</span>Footnotes</a></li></ol></nav></details><script type="module">var e=e=>{let t=e.clientHeight>0&&e.scrollHeight>e.clientHeight+1,n=t&&e.scrollTop>1,r=t&&e.scrollTop+e.clientHeight<e.scrollHeight-1;e.classList.toggle(`toc-scroll-region--above`,n),e.classList.toggle(`toc-scroll-region--below`,r)};document.querySelectorAll(`.toc-scroll-region`).forEach(t=>{let n=()=>e(t);t.addEventListener(`scroll`,n,{passive:!0}),new ResizeObserver(n).observe(t),n()}),document.querySelector(`.toc-drawer`)?.addEventListener(`toggle`,t=>{let n=t.currentTarget.querySelector(`.toc-scroll-region`);n&&requestAnimationFrame(()=>e(n))});</script></div><main class="content-layout" data-astro-cid-tldeq5d5><article class="article-frame" data-pagefind-body data-astro-cid-tldeq5d5><header class="article-header" data-astro-cid-tldeq5d5><h1 data-astro-cid-tldeq5d5>Vibe Coding Is Not Enough</h1></header><div class="article-content" data-astro-cid-tldeq5d5><h2 id="复杂动态长上下文管理">复杂动态长上下文管理</h2>
+<p>复杂的开放性问题：无限长、动态变化的需求上下文。
+大模型也无法一步到位解决需求。</p>
+<h3 id="需求管理">需求管理</h3>
+<p>需求本身就很复杂，需求管理本身就有不小的工作量。</p>
+<blockquote>
+<p>你有尝试过作为甲方用户，在一个项目中向大模型提过一长串需求吗？</p>
+</blockquote>
+<p>常见问题</p>
+<ul>
+<li>需求已经实现了，但人类不知道，继续要求实现冗余需求。</li>
+<li>凭空创造不该出现的功能特性，被客户认为开后门。</li>
+<li>依赖的服务报错，</li>
+</ul>
+<aside aria-label="Example" class="example-block"><p>clangd报错“trying to get AST for non-added document”时，应该：</p><ul>
+<li>cgraph应该将它视为常规报错</li>
+<li>直接过滤项目外的符号</li>
+<li>通过配置文件决定是否过滤项目外的符号</li>
+</ul></aside>
+<h3 id="决策难点">决策难点</h3>
+<h4 id="架构与设计模式决策">架构与设计模式决策</h4>
+<p>水平差的人类经常做出错误的架构设计。
+水平差的人类，如果向大模型发出了错误的决策，大模型出于对人类偏好的对齐，自然也会坚决执行错误的决策，越走越偏。</p>
+<aside aria-label="Example" class="example-block"><p>向量数据库前过滤上提后过滤的操作，是否破坏了PG的优化器框架？</p><p>下策：让大模型用最少的代码修改来实现。
+上策：让agent先调研PG的优化器框架。</p></aside>
+<h4 id="问题修复方案决策">问题修复方案决策</h4>
+<p>一个Bug可能有多种修复方式：</p>
+<ul>
+<li>可以在不同层级的模块上修复</li>
+<li>侵入式代码适配 vs. 从根本上改变内部设计or外部接口约定
+<ul>
+<li>可以在本模块内做侵入式适配（if 当前table是增量物化视图内部产生的临时表，跳过Vacuum），改动代码少，但导致了侵入式修改。</li>
+<li>可以要求增量物化视图模块从根本上避免分布式下的Vacuum失败（强行让多个CN之间的临时表名称完全相同，但这可能动的是整个增量物化视图代码的基础逻辑？）</li>
+</ul>
+</li>
+</ul>
+<p>需要人类决策，和人类意图对齐，保证代码可维护性。</p>
+<aside aria-label="Example" class="example-block"><p>cgraph的例子：codex + GPT 5.6 sol在写代码的时候，发现clangd找不到<code>workspace/symbol</code>，于是针对clangd服务器写了特殊的适配代码。这违反了LSP协议的通用性。
+面对这里违反通用接口约定、破坏模块封装的hack代码，人类需要让agent进一步深入调研其它客户端（如Neovim）的LSP实现，确认clangd是否真的存在隐式的行为不一致现象。</p><p>提示词：你是说，clangd处理workspace symbol的行为和通用的语言服务器行为不一样？你能否调研一下其它客户端LSP实现，例如Neovim的实现，它们真的对clangd做了特殊处理吗？按理说语言服务器协议作为通用协议，不该做特殊处理啊。</p></aside>
+<h2 id="可信软件工程">可信软件工程</h2>
+<h3 id="上下文缺失">上下文缺失</h3>
+<p>测试集越全面完整、对bug容忍度越高、上下文越完整，越可以放心大胆让Agent跑长程任务。</p>
+<p>但在系统软件开发领域，常常面临以下困境：</p>
+<ul>
+<li>测试集不全面：
+<ul>
+<li>针对一个模块的CI测试包含门禁CI、日构建流水线测试（完整运行3小时起步）、周构建流水线测试。</li>
+<li>其它模块的单元测试数量也非常多。</li>
+<li>更多复杂的黑盒测试用例在测试工程师手上（可能包含无法自动化的测试）。</li>
+<li>测试集本身看护不全：并发场景、特殊时序关系下才能触发的bug，似乎难以自动化用例。（或许可以采用插桩的方式控制时序）
+<ul>
+<li>和历史特性、其它特性交叉的测试集。</li>
+<li>各类专项测试，如FUZZ、安全渗透、性能测试……</li>
+<li>系统集成测试、长稳测试的回归至少需要跑3天以上（约1~5小时偶现一次的bug）。</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>人和大模型对其它模块的认知不够完整。
+<ul>
+<li>其它模块中看似是bug的地方，可能有着不为人知的约束条件，或者修改影响面过大，或者涉及行为变更。</li>
+</ul>
+</li>
+</ul>
+<h3 id="用户信任">用户信任</h3>
+<p>金融领域对数据库系统的Bu的容忍程度低，尤其是数据不一致问题。
+产品功能的上线、客户信任的建立往往以年甚至10年为单位。</p>
+<h3 id="软件工程过程审计">软件工程过程审计</h3>
+<p>10个1000行的commit，显然比
+一个10000行的commit更容易被人和大模型接受。因为10个commit相对1个commit，提供了中间的思维链过程，包含了更多信息量。</p>
+<h3 id="agent自动生成的测试套件不全面偏离真实需求">Agent自动生成的测试套件不全面、偏离真实需求</h3>
+<p>不会主动加一些新的测试，比如代码覆盖率测试。</p>
+<h4 id="禁止引入未被记录的行为">禁止引入未被记录的行为</h4>
+<p>面对大型项目，Vibe用户的需求管理可能十分混乱。</p>
+<h3 id="架构不可维护">架构不可维护</h3>
+<ul>
+<li>倾向于在原有逻辑的基础上添加，导致文件越来越长，不会主动重构代码。</li>
+<li>关注局部代码与测试，破坏整体架构。混用旧版和新版架构逻辑。</li>
+</ul>
+<h3 id="可观测性">可观测性</h3>
+<p>当下Agent仍然需要指导它去生成一些辅助可观测性的代码。</p>
+<h2 id="自然语言编程">自然语言编程</h2>
+<h3 id="语言不重要算法思想更重要">语言不重要，算法思想更重要</h3>
+<h3 id="懂得专业名词才能与agent更加高效地交流">懂得专业名词才能与Agent更加高效地交流</h3>
+<h2 id="检查每一行agent生成的代码-vs-一行agent生成的代码都不看">检查每一行Agent生成的代码 vs. 一行Agent生成的代码都不看</h2>
+<ul>
+<li>Robert C. Martin: 一行agent生成的代码都不看。</li>
+<li>Mitchell Hashimoto：检查每一行agent生成的代码<sup><a href="#user-content-fn-read-agent-code" id="user-content-fnref-read-agent-code" data-footnote-ref aria-describedby="footnote-label">1</a></sup>。</li>
+<li>Andrej Karpathy：AI Agent检查代码，每一行改动都能追溯到原始需求。</li>
+<li>Linus Torvalds：人要对代码生成的结果负责。</li>
+</ul>
+<section data-footnotes class="footnotes"><h2 class="sr-only" id="footnote-label">Footnotes</h2>
+<ol>
+<li id="user-content-fn-read-agent-code">
+<p><a href="https://36kr.com/p/3916342030560649#1">https://36kr.com/p/3916342030560649#1</a> <a href="#user-content-fnref-read-agent-code" data-footnote-backref="" aria-label="Back to reference 1" class="data-footnote-backref">↩</a></p>
+</li>
+</ol>
+</section>
+</div></article></main></div><script type="module" src="/assets/BlogPost.astro_astro_type_script_index_0_lang.DWZnnEoa.js"></script><!--
+	展开与收起的按钮是一个箭头图标，位于代码块右上角。
+	收起时展示10行代码，代码块最后带有虚化渐变特效。
+	如果代码块行数小于10行，则没有展开与收起按钮。
+	默认展开。
+--><script type="module">document.querySelectorAll(`.article-content pre`).forEach((e,t)=>{if(e.closest(`.code-block-shell`))return;let n=(e.querySelector(`code`)?.textContent??e.textContent??``).replace(/\n$/,``),r=n.length===0?0:n.split(`
+`).length;if(r<10)return;let i=document.createElement(`div`),a=document.createElement(`button`),o=e.id||`long-code-block-${t+1}`;e.id=o,e.dataset.codeLineCount=String(r),i.className=`code-block-shell`,a.className=`code-block-toggle`,a.type=`button`,a.setAttribute(`aria-controls`,o),a.innerHTML=`<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m4 6 4 4 4-4"/></svg>`;let s=e=>{i.classList.toggle(`code-block-shell--expanded`,e),a.setAttribute(`aria-expanded`,String(e)),a.setAttribute(`aria-label`,e?`收起代码（${r} 行）`:`展开代码（${r} 行）`),a.title=e?`收起代码`:`展开代码`};e.before(i),i.append(e,a),s(!0),a.addEventListener(`click`,()=>{let e=a.getAttribute(`aria-expanded`)===`true`;s(!e)})});</script><dialog class="image-viewer" aria-label="原图查看器" data-astro-cid-zdmlxq35><div class="image-viewer-panel" data-astro-cid-zdmlxq35><button class="image-viewer-close" type="button" aria-label="关闭原图" data-astro-cid-zdmlxq35><span aria-hidden="true" data-astro-cid-zdmlxq35>×</span></button><div class="image-viewer-scroll" data-astro-cid-zdmlxq35><div class="image-viewer-stage" data-astro-cid-zdmlxq35><img class="image-viewer-image" alt="" data-astro-cid-zdmlxq35></div></div></div></dialog><script type="module">var e=document.querySelector(`.image-viewer`),t=e?.querySelector(`.image-viewer-image`),n=e?.querySelector(`.image-viewer-close`),r,i=e=>{let t=Number(e.getAttribute(`width`))||e.naturalWidth,n=Number(e.getAttribute(`height`))||e.naturalHeight,r=e.parentElement;t/n>=2.4&&r?.matches(`figure.image-figure`)&&r.classList.add(`wide-image`)},a=n=>{!e||!t||(r=n,t.src=n.currentSrc||n.src,t.alt=n.alt,e.showModal(),document.documentElement.classList.add(`image-viewer-open`))};document.querySelectorAll(`.article-content img`).forEach(e=>{i(e),e.complete||e.addEventListener(`load`,()=>i(e),{once:!0}),e.tabIndex=0,e.role=`button`,e.setAttribute(`aria-label`,e.alt?`查看原图：${e.alt}`:`查看原图`),e.addEventListener(`click`,()=>a(e)),e.addEventListener(`keydown`,t=>{(t.key===`Enter`||t.key===` `)&&(t.preventDefault(),a(e))})}),n?.addEventListener(`click`,()=>e?.close()),e?.addEventListener(`click`,t=>{t.target===e&&e.close()}),e?.addEventListener(`close`,()=>{document.documentElement.classList.remove(`image-viewer-open`),t?.removeAttribute(`src`),r?.focus(),r=void 0});</script><script type="module">document.querySelectorAll(`[data-keyword-filter]`).forEach(e=>{if(e.dataset.keywordFilterMounted===`true`)return;e.dataset.keywordFilterMounted=`true`;let t=Array.from(e.querySelectorAll(`[data-keyword]`)),n=Array.from(e.querySelectorAll(`[data-keyword-path]`)).map(e=>({element:e,keywords:new Set(JSON.parse(e.dataset.keywordPath??`[]`))})),r=Array.from(e.querySelectorAll(`.keyword-sentence-filter__sentences li`)).reverse(),i=e.querySelector(`[data-keyword-filter-status]`),a=e.querySelector(`[data-keyword-filter-clear]`),o=e.querySelector(`[data-keyword-filter-empty]`),s=new Set,c=()=>{let e=0;for(let t of n){let n=[...s].every(e=>t.keywords.has(e));t.element.hidden=!n,n&&(e+=1)}for(let e of r){if(e.dataset.keywordPath)continue;let t=Array.from(e.children).filter(e=>e.matches(`ul, ol`)).flatMap(e=>Array.from(e.children)).filter(e=>e instanceof HTMLElement);e.hidden=t.length>0&&t.every(e=>e.hidden)}for(let e of t)e.setAttribute(`aria-pressed`,String(s.has(e.dataset.keyword??``)));i&&(i.textContent=s.size===0?`共 ${n.length} 条路径`:`显示 ${e} / ${n.length} 条路径`),a&&(a.hidden=s.size===0),o&&(o.hidden=e!==0)};for(let e of t)e.addEventListener(`click`,()=>{let t=e.dataset.keyword;t&&(s.has(t)?s.delete(t):s.add(t),c())});a?.addEventListener(`click`,()=>{s.clear(),c()})});</script><script type="module">var e=document.querySelector(`.reading-navigation`);if(e){let t=Array.from(e.querySelectorAll(`details`));for(let e of t)e.addEventListener(`toggle`,()=>{if(e.open)for(let n of t)n!==e&&(n.open=!1)}),e.addEventListener(`click`,t=>{t.target.closest(`a`)&&(e.open=!1)});document.addEventListener(`click`,n=>{if(!e.contains(n.target))for(let e of t)e.open=!1})}</script></body></html>

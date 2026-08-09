@@ -1,0 +1,330 @@
+<!DOCTYPE html><html lang="zh-CN" data-astro-cid-tldeq5d5><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="generator" content="Astro v7.2.0"><title>Dolt: Git for Data | Yinzuo Jiang</title><link rel="stylesheet" href="/assets/BlogPost.DMfLLSA3.css"><style>:root{--color-canvas:#f3ebdd;--color-ink:#2f2a26;--color-muted:#81786f;--color-line:#dfd7cd;--color-accent:#b66b50;--color-nav:#625d58;--color-link-underline:#c79b83;--color-link-hover:#713b2b;--font-serif:"Iowan Old Style", "Palatino Linotype", "Source Han Serif SC VF", "Noto Serif CJK SC", Georgia, serif;--font-sans:"Source Han Sans CN", "Noto Sans CJK SC", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;--font-mono:"SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;--mobile-nav-height:48px}*{box-sizing:border-box}html,body{background-color:var(--color-canvas);color:var(--color-ink)}html{scrollbar-gutter:stable}a{color:inherit;text-decoration-color:var(--color-link-underline);text-decoration-skip-ink:auto;text-underline-offset:.2em;text-decoration-line:underline;text-decoration-thickness:1px;transition:color .12s,text-decoration-color .12s}a:hover{color:var(--color-link-hover);text-decoration-color:currentColor}a:focus-visible{outline:2px solid var(--color-accent);outline-offset:3px;border-radius:1px}.private-lock{color:var(--color-muted);margin-left:.35em}.private-lock svg{vertical-align:-.1em;width:.75em;height:.75em;display:inline-block}.site-nav[data-astro-cid-rutobish]{z-index:10;background:var(--color-canvas);font-family:var(--font-mono);letter-spacing:0;align-items:center;padding:3px 0 3px 10px;font-size:15px;font-weight:700;line-height:1.4;display:flex;position:fixed;top:22px;right:clamp(16px,2vw,24px)}.site-nav[data-astro-cid-rutobish] a[data-astro-cid-rutobish]{color:var(--color-nav);text-decoration:none}.site-nav[data-astro-cid-rutobish] a[data-astro-cid-rutobish]+a[data-astro-cid-rutobish]{margin-left:16px}.site-nav[data-astro-cid-rutobish] a[data-astro-cid-rutobish]:hover{color:var(--color-accent)}.site-nav[data-astro-cid-rutobish] a[data-astro-cid-rutobish]:focus-visible{outline:2px solid var(--color-accent);outline-offset:3px}@media (width<=680px){.site-nav[data-astro-cid-rutobish]{z-index:30;width:auto;max-width:100%;min-height:calc(var(--mobile-nav-height) + env(safe-area-inset-top));padding:env(safe-area-inset-top) max(1rem, env(safe-area-inset-right)) 0 .75rem;justify-content:flex-end;top:0;left:auto;right:0}}@media print{.site-nav[data-astro-cid-rutobish]{display:none}}
+</style></head><body data-astro-cid-tldeq5d5><div class="page-shell" data-astro-cid-tldeq5d5><div class="nav-spacer" data-astro-cid-tldeq5d5><nav class="site-nav" aria-label="主导航" data-pagefind-ignore="all" data-astro-cid-rutobish><a href="/" data-astro-cid-rutobish>Home</a><a href="/posts/" aria-current="page" data-astro-cid-rutobish>Blog</a></nav></div><div class="reading-navigation" data-astro-cid-tldeq5d5><!--
+	目录保留独立滚动和最大高度，但隐藏浏览器默认滚动条，并用轻微的上下渐隐提示可滚动内容，避免滚动轨道造成视觉冲突。
+--><aside class="table-of-contents" aria-labelledby="toc-title" data-astro-cid-p33bl5ka><p id="toc-title" data-astro-cid-p33bl5ka>目录</p><nav class="toc-scroll-region" aria-label="文章目录" data-astro-cid-p33bl5ka><ol data-astro-cid-p33bl5ka><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#concepts" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>1</span>Concepts</a><ol class="toc-subsections" data-astro-cid-p33bl5ka><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#why-dolt-git--sql--rdbms-2" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>1.1</span>Why Dolt (Git + SQL + RDBMS)? 2</a></li><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#dolts-axioms" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>1.2</span>Dolt’s Axioms</a></li><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#git" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>1.3</span>Git</a></li></ol></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#architecture" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>2</span>Architecture</a><ol class="toc-subsections" data-astro-cid-p33bl5ka><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#overview" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>2.1</span>Overview</a></li><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#prolly-tree5" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>2.2</span>Prolly Tree5</a></li><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#block-storecontent-addressed-store-cas" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>2.3</span>Block Store（Content Addressed Store, CAS）</a></li></ol></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#footnote-label" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>3</span>Footnotes</a></li></ol></nav></aside><details class="toc-drawer" data-pagefind-ignore="all" data-astro-cid-p33bl5ka><summary data-astro-cid-p33bl5ka>本页目录</summary><nav class="toc-scroll-region" aria-label="文章目录" data-astro-cid-p33bl5ka><ol data-astro-cid-p33bl5ka><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#concepts" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>1</span>Concepts</a><ol class="toc-subsections" data-astro-cid-p33bl5ka><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#why-dolt-git--sql--rdbms-2" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>1.1</span>Why Dolt (Git + SQL + RDBMS)? 2</a></li><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#dolts-axioms" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>1.2</span>Dolt’s Axioms</a></li><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#git" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>1.3</span>Git</a></li></ol></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#architecture" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>2</span>Architecture</a><ol class="toc-subsections" data-astro-cid-p33bl5ka><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#overview" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>2.1</span>Overview</a></li><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#prolly-tree5" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>2.2</span>Prolly Tree5</a></li><li data-astro-cid-p33bl5ka><a class="subsection-link" href="#block-storecontent-addressed-store-cas" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>2.3</span>Block Store（Content Addressed Store, CAS）</a></li></ol></li><li class="toc-section" data-astro-cid-p33bl5ka><a class="section-link" href="#footnote-label" data-astro-cid-p33bl5ka><span aria-hidden="true" data-astro-cid-p33bl5ka>3</span>Footnotes</a></li></ol></nav></details><script type="module">var e=e=>{let t=e.clientHeight>0&&e.scrollHeight>e.clientHeight+1,n=t&&e.scrollTop>1,r=t&&e.scrollTop+e.clientHeight<e.scrollHeight-1;e.classList.toggle(`toc-scroll-region--above`,n),e.classList.toggle(`toc-scroll-region--below`,r)};document.querySelectorAll(`.toc-scroll-region`).forEach(t=>{let n=()=>e(t);t.addEventListener(`scroll`,n,{passive:!0}),new ResizeObserver(n).observe(t),n()}),document.querySelector(`.toc-drawer`)?.addEventListener(`toggle`,t=>{let n=t.currentTarget.querySelector(`.toc-scroll-region`);n&&requestAnimationFrame(()=>e(n))});</script></div><main class="content-layout" data-astro-cid-tldeq5d5><article class="article-frame" data-pagefind-body data-astro-cid-tldeq5d5><header class="article-header" data-astro-cid-tldeq5d5><h1 data-astro-cid-tldeq5d5>Dolt: Git for Data</h1></header><div class="article-content" data-astro-cid-tldeq5d5><h2 id="concepts">Concepts</h2>
+<p>Dolt is a SQL database you can fork, clone, branch, merge, push and pull just like a Git repository.<sup><a href="#user-content-fn-1" id="user-content-fnref-1" data-footnote-ref aria-describedby="footnote-label">1</a></sup></p>
+<ul>
+<li>a version controlled database.
+<ul>
+<li>SQL</li>
+<li>system tables, functions, procedures…</li>
+</ul>
+</li>
+<li>Git for Data.
+<ul>
+<li><code>dolt add</code></li>
+<li><code>dolt commit</code></li>
+<li>DoltHub, a place to share Dolt databases. Host public data for free!</li>
+<li>…</li>
+</ul>
+</li>
+<li>a Versioned MySQL Replica.
+<ul>
+<li>MySQL compatible, deployed as a Versioned MySQL Replica.</li>
+</ul>
+</li>
+</ul>
+<h3 id="why-dolt-git--sql--rdbms-2">Why Dolt (Git + SQL + RDBMS)? <sup><a href="#user-content-fn-2" id="user-content-fnref-2" data-footnote-ref aria-describedby="footnote-label">2</a></sup></h3>
+<ul>
+<li><strong>Git-style Distributed Version Control</strong>: collaborate on open source software -&gt; collaborate on data.</li>
+<li><strong>SQL</strong>: worldwide standard for data description and querying.</li>
+</ul>
+<h4 id="how-to-share-a-sql-database">How to Share a SQL Database</h4>
+<ul>
+<li>Share the same view of the data</li>
+<li>Do not copy -&gt; only one write could happen at a time.</li>
+<li>Make a copy -&gt; no tractable way to compare &amp; merge the two copies.</li>
+</ul>
+<p>DoltHub: copy a database, make changes, compare the database copies, and merge the changes.</p>
+<h4 id="use-case">Use case</h4>
+<ul>
+<li>roll back the change when someone made a mistake</li>
+<li>clone the production data for debugging</li>
+<li>open your data up to the world</li>
+</ul>
+<h3 id="dolts-axioms">Dolt’s Axioms</h3>
+<ul>
+<li>Git versions files. Dolt versions table schema and table data.</li>
+<li>Dolt will copy the Git command line exactly.</li>
+<li>Dolt will be MySQL compatible.</li>
+<li>Git features in SQL will extend MySQL SQL. Write operations will be procedures. Read operations will be system tables.</li>
+</ul>
+<h3 id="git">Git</h3>
+<ul>
+<li>commmits</li>
+<li>diff</li>
+<li>branch</li>
+<li>merge</li>
+<li>conflicts</li>
+<li>remotes</li>
+<li>working set</li>
+</ul>
+<p>see <a href="https://www.dolthub.com/docs/cli-reference/git-comparison/">Git Comparison</a>.</p>
+<h4 id="commit3">Commit<sup><a href="#user-content-fn-3" id="user-content-fnref-3" data-footnote-ref aria-describedby="footnote-label">3</a></sup></h4>
+<p>Commit: save the state of the current database permanently for future reference.</p>
+<p>Commit stores the root hash (or reference) of the database.
+A graph of all the commits</p>
+<ul>
+<li>A merge commit will have multiple parents.</li>
+</ul>
+<figure class="image-figure"><img  src="/assets/dolt-commit.B_-QL93N_ZnBeKk.webp" alt="dolt-commit" loading="lazy" decoding="async" width="1031" height="708"><figcaption>dolt-commit</figcaption></figure>
+<h5 id="how-to-use-commits">How to Use Commits</h5>
+<p>Dolt uses commits as the basis of comparison between two versions of a database.</p>
+<ul>
+<li>Show me the differences between these two commits</li>
+<li>Give me the common ancestor of these two commits</li>
+<li>Make my current database look like this commit</li>
+<li>Show me the difference between my current database and the last commit</li>
+<li>Show me all the commits since this database was created</li>
+<li>Show me who created this commit and the message they left when he or she made it</li>
+</ul>
+<h5 id="example">Example</h5>
+<p>CLI</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="plaintext"><code><span class="line"><span>docs $ dolt sql -q "create table docs (pk int, primary key(pk))"</span></span>
+<span class="line"><span>docs $ dolt add .</span></span>
+<span class="line"><span>docs $ dolt status</span></span>
+<span class="line"><span>On branch main</span></span>
+<span class="line"><span>Changes to be committed:</span></span>
+<span class="line"><span>  (use "dolt reset &lt;table&gt;..." to unstage)</span></span>
+<span class="line"><span>	new table:      docs</span></span>
+<span class="line"><span>docs $ dolt commit -m "Added example table docs"</span></span>
+<span class="line"><span>commit 7vureh3qotrr02sog3tjgjk73sqmc2de</span></span>
+<span class="line"><span>Author: Tim Sehn &lt;tim@dolthub.com&gt;</span></span>
+<span class="line"><span>Date:   Mon Dec 06 13:25:55 -0800 2021</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>	Added example table docs</span></span></code></pre>
+<p>SQL</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="plaintext"><code><span class="line"><span>docs $ dolt sql -q "create table docs_sql (pk int, primary key(pk))"</span></span>
+<span class="line"><span>docs $ dolt sql -q "call dolt_commit('-a', '-m', 'Added docs_sql example table. Use -a to stage all changes for commit ie. skip dolt add')"</span></span>
+<span class="line"><span>+-------------------------------------------------------------------------------------------------------------------+</span></span>
+<span class="line"><span>| dolt_commit('-a', '-m', 'Added docs_sql example table. Use -a to stage all changes for commit ie. skip dolt add') |</span></span>
+<span class="line"><span>+-------------------------------------------------------------------------------------------------------------------+</span></span>
+<span class="line"><span>| v42og53ru3k3hak3decm23crp5p6kd2f                                                                                  |</span></span>
+<span class="line"><span>+-------------------------------------------------------------------------------------------------------------------+</span></span></code></pre>
+<h2 id="architecture">Architecture</h2>
+<h3 id="overview">Overview</h3>
+<p>Dolt leveraged three existing open source packages:</p>
+<ul>
+<li>Noms for version controlled storage.</li>
+<li>go-mysql-server for our SQL engine.</li>
+<li>Vitess for MySQL compatible parsing and serving.</li>
+</ul>
+<figure class="image-figure"><img  src="/assets/dolt-architecture.CmzKwkqP_ZWNaaQ.webp" alt="dolt-architecture" loading="lazy" decoding="async" width="1496" height="864"><figcaption>dolt-architecture</figcaption></figure>
+<h4 id="noms-a-data-storage-engine-with-git-properties">Noms: a data storage engine with Git properties</h4>
+<p>Prolly tree: A content-addressed B-tree</p>
+<ul>
+<li>seek performance characteristics of a B-tree</li>
+<li>fast diff</li>
+</ul>
+<h5 id="prolly-trees--commit-graph--dolt-storage-engine">Prolly Trees + Commit Graph = Dolt Storage Engine</h5>
+<h6 id="requirements">Requirements</h6>
+<ul>
+<li>tables</li>
+<li>performance at scale</li>
+<li>fast diff
+<ul>
+<li>Displaying diffs to a user is a common operation.</li>
+<li>Merge relies on diffs</li>
+</ul>
+</li>
+<li>structual sharing
+<ul>
+<li>All versions of the data must be stored.</li>
+<li>Data that does not change between versions must share storage.</li>
+</ul>
+</li>
+</ul>
+<h6 id="prolly-trees">Prolly Trees</h6>
+<p>1 table &lt;-&gt; 1 prolly tree</p>
+<p><img  src="/assets/dolt-prolly-trees.JQS_Rqhh_1Hqbaf.webp" alt="dolt-prolly-trees" loading="lazy" decoding="async" width="1341" height="567">
+<img  src="/assets/dolt-prolly-trees-update10.DIeS9V_E_Z2gigV0.webp" alt="dolt-prolly-trees-update10" loading="lazy" decoding="async" width="1333" height="463"></p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left">Operation</th>
+<th style="text-align: left">B-Trees</th>
+<th style="text-align: left">Prolly Trees</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left">1 Random Read</td>
+<td style="text-align: left">log<sub>k</sub>(n)</td>
+<td style="text-align: left">log<sub>k</sub>(n)</td>
+</tr>
+<tr>
+<td style="text-align: left">1 Random Write</td>
+<td style="text-align: left">log<sub>k</sub>(n)</td>
+<td style="text-align: left">(1+k/w)*log<sub>k</sub>(n)</td>
+</tr>
+<tr>
+<td style="text-align: left">Ordered scan of one item with size z</td>
+<td style="text-align: left">z/k</td>
+<td style="text-align: left">z/k</td>
+</tr>
+<tr>
+<td style="text-align: left">Calculate diff of size d</td>
+<td style="text-align: left">n</td>
+<td style="text-align: left">d</td>
+</tr>
+<tr>
+<td style="text-align: left">Structural sharing</td>
+<td style="text-align: left">❌</td>
+<td style="text-align: left">✅</td>
+</tr>
+</tbody>
+</table>
+<p><strong>n</strong>: total leaf data in tree, <strong>k</strong>: average block size, <strong>w</strong>: window width</p>
+<h6 id="commit-graph">Commit Graph</h6>
+<p><img  src="/assets/dolt-schema-data-hashed.Cie8jT4M_2ktS9w.webp" alt="dolt-schema-data-hashed" loading="lazy" decoding="async" width="1032" height="630">
+<img  src="/assets/dolt-database-hashed.DmbLw1Yy_KtoKp.webp" alt="dolt-database-hashed" loading="lazy" decoding="async" width="1022" height="500">
+<img  src="/assets/dolt-commit-graph-head-pointer.DfNVirFy_2aEs5a.webp" alt="dolt-commit-graph-head-pointer" loading="lazy" decoding="async" width="1010" height="1014"></p>
+<p>And, thus, you end up with Dolt’s storage engine.
+<img  src="/assets/dolt-commit-graph.DwoywC5q_Ag0QF.webp" alt="dolt-commit-graph" loading="lazy" decoding="async" width="1008" height="1132"></p>
+<p>commit graph<sup><a href="#user-content-fn-5" id="user-content-fnref-5" data-footnote-ref aria-describedby="footnote-label">4</a></sup>, branches, merge
+<img  src="/assets/dolt-commit-graph-merge.iH6pEZgb_Z1RgrfC.webp" alt="dolt-commit-graph-merge" loading="lazy" decoding="async" width="1748" height="877"></p>
+<h3 id="prolly-tree5">Prolly Tree<sup><a href="#user-content-fn-6" id="user-content-fnref-6" data-footnote-ref aria-describedby="footnote-label">5</a></sup></h3>
+<p><a href="https://www.prollytree.com/">https://www.prollytree.com/</a></p>
+<h4 id="property-1-history-independence">Property 1: History Independence</h4>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="plaintext"><code><span class="line"><span>order-5 B-tree：different insertion orders =&gt; different final structures</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>elements: {10, 20, 30, 40, 50, 60, 70, 80}</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>Insertion order 1: 10, 20, 30, 40, 50, 60, 70, 80</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>Final structure:</span></span>
+<span class="line"><span>          [30,60]</span></span>
+<span class="line"><span>        /    |    \</span></span>
+<span class="line"><span> [10,20] [40,50] [70,80]</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>Insertion order 2: 50, 40, 60, 30, 70, 20, 80, 10</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>Final structure:</span></span>
+<span class="line"><span>           [ 50 ]</span></span>
+<span class="line"><span>          /     \</span></span>
+<span class="line"><span> [10,20,30,40] [60,70,80]</span></span></code></pre>
+<p>History independence is guaranteed by:</p>
+<ol>
+<li>Chunked by hash value</li>
+<li>The parent node contains the highest keys of its children.</li>
+</ol>
+<p><img  src="/assets/prolly-tree-order1.DfLPuo4Y_Z2c61QT.webp" alt="prolly-tree-order1" loading="lazy" decoding="async" width="1520" height="554">
+<img  src="/assets/prolly-tree-order2.glPbzsRU_25K9b0.webp" alt="prolly-tree-order2" loading="lazy" decoding="async" width="1438" height="562"></p>
+<blockquote>
+<p>Content-Defined Chunking<sup><a href="#user-content-fn-7" id="user-content-fnref-7" data-footnote-ref aria-describedby="footnote-label">6</a></sup></p>
+</blockquote>
+<h4 id="property-2-fast-diffs">Property 2: Fast Diffs</h4>
+<p>Compare hashes starting from the root node.</p>
+<figure class="image-figure"><img  src="/assets/prolly-tree-fast-diffs.D-J2qkE7_1SeIW5.webp" alt="prolly-tree-fast-diffs" loading="lazy" decoding="async" width="1234" height="959"><figcaption>prolly-tree-fast-diffs</figcaption></figure>
+<h4 id="detail-1-controlling-chunk-size">Detail 1: Controlling Chunk Size</h4>
+<h5 id="the-original-noms-chunking-method">The Original Noms Chunking Method</h5>
+<ul>
+<li>Noms splits a key-value byte stream into chunks using a <strong>rolling hash</strong>.</li>
+<li>At each position, it computes a rolling hash of the recent bytes.</li>
+<li>If the hash meets a <strong>fixed condition</strong> (e.g., low <code class="language-math math-inline">k</code> bits are zero), it creates a chunk boundary.</li>
+<li>This condition triggers with a <strong>constant probability</strong> <code class="language-math math-inline">p</code>.</li>
+<li>For an average chunk size of 4 KB, <code class="language-math math-inline">p = 1/4096</code>.</li>
+</ul>
+<h6 id="the-chunk-size-is-geometric">The Chunk Size Is Geometric</h6>
+<ul>
+<li>Each position is an <strong>independent Bernoulli trial</strong>:
+<ul>
+<li>Success = trigger a boundary</li>
+<li>Probability of success = <code class="language-math math-inline">p</code></li>
+</ul>
+</li>
+<li>Chunk length <code class="language-math math-inline">L</code> = number of bytes until the first success.</li>
+<li>Therefore:</li>
+</ul>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="plaintext"><code><span class="line"><span>  L \sim \text{Geometric}(p)</span></span></code></pre>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="plaintext"><code><span class="line"><span>  P(L = n) = (1-p)^{n-1} p</span></span></code></pre>
+<ul>
+<li>The expected length is:</li>
+</ul>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="plaintext"><code><span class="line"><span>  E[L] = \frac{1}{p} = 4096 \text{ bytes}</span></span></code></pre>
+<h6 id="consequence-many-small-chunks">Consequence: Many Small Chunks</h6>
+<ul>
+<li>Many chunks are much smaller than 4 KB.</li>
+<li><strong>Long tail</strong>: A few chunks are very large.
+<ul>
+<li>hurt read performance because binary search within a chunk costs (O(\log n)).</li>
+</ul>
+</li>
+</ul>
+<figure class="image-figure"><img  src="/assets/noms-geometric-distribution.lg9D-pHI_2iXkKV.webp" alt="noms-geometric-distribution" loading="lazy" decoding="async" width="288" height="288"><figcaption>noms-geometric-distribution</figcaption></figure>
+<h5 id="dolts-optimization">Dolt’s Optimization</h5>
+<h6 id="target-distribution">Target Distribution</h6>
+<p>We want the chunk length <code class="language-math math-inline">L</code> to follow a target distribution.</p>
+<ul>
+<li>cumulative distribution function (CDF): <code class="language-math math-inline">\operatorname{CDF}(x) = P(L \le x)</code></li>
+</ul>
+<p>For example, the target can be a normal distribution centered at 4 KB.</p>
+<figure class="image-figure"><img  src="/assets/dolt-normal-distribution.ZBnVuuNQ_ZzfLK0.webp" alt="dolt-normal-distribution" loading="lazy" decoding="async" width="288" height="288"><figcaption>dolt-normal-distribution</figcaption></figure>
+<h6 id="online-splitting-condition">Online Splitting Condition</h6>
+<p>Suppose the current chunk size is <code class="language-math math-inline">start</code>, and the chunk has not been split yet:
+<code class="language-math math-inline">L &gt; start</code>.</p>
+<p>We append a key-value pair of size <code class="language-math math-inline">\Delta</code>, so the new size is:
+<code class="language-math math-inline">end = start + \Delta</code>.</p>
+<p>Given <code class="language-math math-inline">L &gt; start</code>, the probability that the chunk ends in <code class="language-math math-inline">(start, end]</code> is:</p>
+<pre class="astro-code github-light" style="background-color:#fff;color:#24292e; overflow-x: auto;" tabindex="0" data-language="plaintext"><code><span class="line"><span>p = P(start &lt; L \le end \mid L &gt; start)</span></span>
+<span class="line"><span>= \frac{P(start &lt; L \le end)}{P(L &gt; start)}</span></span>
+<span class="line"><span>= \frac{\operatorname{CDF}(end) - \operatorname{CDF}(start)}{1 - \operatorname{CDF}(start)}</span></span></code></pre>
+<p>Dolt uses this probability to decide whether to split at this point.</p>
+<h4 id="detail-2-two-kinds-of-hashes-in-a-prolly-tree">Detail 2: Two Kinds of hashes in a Prolly Tree</h4>
+<p>There are at least two kinds of hashes in a Prolly Tree:</p>
+<table>
+<thead>
+<tr>
+<th>Purpose</th>
+<th>Computed over</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Rolling hash</td>
+<td>Keys only</td>
+<td>Determines where chunk boundaries are</td>
+</tr>
+<tr>
+<td>Content hash / Merkle hash</td>
+<td>Key + value</td>
+<td>Identifies the chunk and is used for diff</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>Rolling hash is a hashing technique that supports incremental updates:
+when a sliding window shifts by one position, it computes the new window’s hash from the old one in O(1) time instead of recomputing the entire window.</p>
+</blockquote>
+<h3 id="block-storecontent-addressed-store-cas">Block Store（Content Addressed Store, CAS）</h3>
+<p>See <a href="/posts/content-addressed-store/">内容寻址存储（Content Addressed Store, CAS）</a></p>
+<section data-footnotes class="footnotes"><h2 class="sr-only" id="footnote-label">Footnotes</h2>
+<ol>
+<li id="user-content-fn-1">
+<p><a href="https://www.dolthub.com/docs/introduction/what-is-dolt/">https://www.dolthub.com/docs/introduction/what-is-dolt/</a> <a href="#user-content-fnref-1" data-footnote-backref="" aria-label="Back to reference 1" class="data-footnote-backref">↩</a></p>
+</li>
+<li id="user-content-fn-2">
+<p><a href="https://www.dolthub.com/docs/concepts/dolt/">https://www.dolthub.com/docs/concepts/dolt/</a> <a href="#user-content-fnref-2" data-footnote-backref="" aria-label="Back to reference 2" class="data-footnote-backref">↩</a></p>
+</li>
+<li id="user-content-fn-3">
+<p><a href="https://www.dolthub.com/docs/concepts/dolt/git/commits/">https://www.dolthub.com/docs/concepts/dolt/git/commits/</a> <a href="#user-content-fnref-3" data-footnote-backref="" aria-label="Back to reference 3" class="data-footnote-backref">↩</a></p>
+</li>
+<li id="user-content-fn-5">
+<p><a href="https://www.dolthub.com/docs/architecture/storage-engine/commit-graph/">https://www.dolthub.com/docs/architecture/storage-engine/commit-graph/</a> <a href="#user-content-fnref-5" data-footnote-backref="" aria-label="Back to reference 4" class="data-footnote-backref">↩</a></p>
+</li>
+<li id="user-content-fn-6">
+<p><a href="https://www.dolthub.com/docs/architecture/storage-engine/prolly-tree/">https://www.dolthub.com/docs/architecture/storage-engine/prolly-tree/</a> <a href="#user-content-fnref-6" data-footnote-backref="" aria-label="Back to reference 5" class="data-footnote-backref">↩</a></p>
+</li>
+<li id="user-content-fn-7">
+<p>从文件到块: 提高 Hugging Face 存储效率 - Hugging Face的文章 - 知乎 <a href="https://zhuanlan.zhihu.com/p/27906353824">https://zhuanlan.zhihu.com/p/27906353824</a> <a href="#user-content-fnref-7" data-footnote-backref="" aria-label="Back to reference 6" class="data-footnote-backref">↩</a></p>
+</li>
+</ol>
+</section>
+</div></article></main></div><script type="module" src="/assets/BlogPost.astro_astro_type_script_index_0_lang.DWZnnEoa.js"></script><!--
+	展开与收起的按钮是一个箭头图标，位于代码块右上角。
+	收起时展示10行代码，代码块最后带有虚化渐变特效。
+	如果代码块行数小于10行，则没有展开与收起按钮。
+	默认展开。
+--><script type="module">document.querySelectorAll(`.article-content pre`).forEach((e,t)=>{if(e.closest(`.code-block-shell`))return;let n=(e.querySelector(`code`)?.textContent??e.textContent??``).replace(/\n$/,``),r=n.length===0?0:n.split(`
+`).length;if(r<10)return;let i=document.createElement(`div`),a=document.createElement(`button`),o=e.id||`long-code-block-${t+1}`;e.id=o,e.dataset.codeLineCount=String(r),i.className=`code-block-shell`,a.className=`code-block-toggle`,a.type=`button`,a.setAttribute(`aria-controls`,o),a.innerHTML=`<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m4 6 4 4 4-4"/></svg>`;let s=e=>{i.classList.toggle(`code-block-shell--expanded`,e),a.setAttribute(`aria-expanded`,String(e)),a.setAttribute(`aria-label`,e?`收起代码（${r} 行）`:`展开代码（${r} 行）`),a.title=e?`收起代码`:`展开代码`};e.before(i),i.append(e,a),s(!0),a.addEventListener(`click`,()=>{let e=a.getAttribute(`aria-expanded`)===`true`;s(!e)})});</script><dialog class="image-viewer" aria-label="原图查看器" data-astro-cid-zdmlxq35><div class="image-viewer-panel" data-astro-cid-zdmlxq35><button class="image-viewer-close" type="button" aria-label="关闭原图" data-astro-cid-zdmlxq35><span aria-hidden="true" data-astro-cid-zdmlxq35>×</span></button><div class="image-viewer-scroll" data-astro-cid-zdmlxq35><div class="image-viewer-stage" data-astro-cid-zdmlxq35><img class="image-viewer-image" alt="" data-astro-cid-zdmlxq35></div></div></div></dialog><script type="module">var e=document.querySelector(`.image-viewer`),t=e?.querySelector(`.image-viewer-image`),n=e?.querySelector(`.image-viewer-close`),r,i=e=>{let t=Number(e.getAttribute(`width`))||e.naturalWidth,n=Number(e.getAttribute(`height`))||e.naturalHeight,r=e.parentElement;t/n>=2.4&&r?.matches(`figure.image-figure`)&&r.classList.add(`wide-image`)},a=n=>{!e||!t||(r=n,t.src=n.currentSrc||n.src,t.alt=n.alt,e.showModal(),document.documentElement.classList.add(`image-viewer-open`))};document.querySelectorAll(`.article-content img`).forEach(e=>{i(e),e.complete||e.addEventListener(`load`,()=>i(e),{once:!0}),e.tabIndex=0,e.role=`button`,e.setAttribute(`aria-label`,e.alt?`查看原图：${e.alt}`:`查看原图`),e.addEventListener(`click`,()=>a(e)),e.addEventListener(`keydown`,t=>{(t.key===`Enter`||t.key===` `)&&(t.preventDefault(),a(e))})}),n?.addEventListener(`click`,()=>e?.close()),e?.addEventListener(`click`,t=>{t.target===e&&e.close()}),e?.addEventListener(`close`,()=>{document.documentElement.classList.remove(`image-viewer-open`),t?.removeAttribute(`src`),r?.focus(),r=void 0});</script><script type="module">document.querySelectorAll(`[data-keyword-filter]`).forEach(e=>{if(e.dataset.keywordFilterMounted===`true`)return;e.dataset.keywordFilterMounted=`true`;let t=Array.from(e.querySelectorAll(`[data-keyword]`)),n=Array.from(e.querySelectorAll(`[data-keyword-path]`)).map(e=>({element:e,keywords:new Set(JSON.parse(e.dataset.keywordPath??`[]`))})),r=Array.from(e.querySelectorAll(`.keyword-sentence-filter__sentences li`)).reverse(),i=e.querySelector(`[data-keyword-filter-status]`),a=e.querySelector(`[data-keyword-filter-clear]`),o=e.querySelector(`[data-keyword-filter-empty]`),s=new Set,c=()=>{let e=0;for(let t of n){let n=[...s].every(e=>t.keywords.has(e));t.element.hidden=!n,n&&(e+=1)}for(let e of r){if(e.dataset.keywordPath)continue;let t=Array.from(e.children).filter(e=>e.matches(`ul, ol`)).flatMap(e=>Array.from(e.children)).filter(e=>e instanceof HTMLElement);e.hidden=t.length>0&&t.every(e=>e.hidden)}for(let e of t)e.setAttribute(`aria-pressed`,String(s.has(e.dataset.keyword??``)));i&&(i.textContent=s.size===0?`共 ${n.length} 条路径`:`显示 ${e} / ${n.length} 条路径`),a&&(a.hidden=s.size===0),o&&(o.hidden=e!==0)};for(let e of t)e.addEventListener(`click`,()=>{let t=e.dataset.keyword;t&&(s.has(t)?s.delete(t):s.add(t),c())});a?.addEventListener(`click`,()=>{s.clear(),c()})});</script><script type="module">var e=document.querySelector(`.reading-navigation`);if(e){let t=Array.from(e.querySelectorAll(`details`));for(let e of t)e.addEventListener(`toggle`,()=>{if(e.open)for(let n of t)n!==e&&(n.open=!1)}),e.addEventListener(`click`,t=>{t.target.closest(`a`)&&(e.open=!1)});document.addEventListener(`click`,n=>{if(!e.contains(n.target))for(let e of t)e.open=!1})}</script></body></html>
